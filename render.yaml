@@ -1,0 +1,69 @@
+# ═══════════════════════════════════════════════════════════════════════════
+# Blueprint do Render — provisiona o serviço e o banco de uma vez só.
+#
+# COMO USAR
+#   1. No Render: New  →  Blueprint
+#   2. Escolha o repositório atlas-ia-backend
+#   3. O Render lê este arquivo e monta tudo. Ele vai pedir UMA coisa:
+#      a chave da Anthropic (ANTHROPIC_API_KEY). O resto é automático.
+#   4. Apply.
+#
+# O token de acesso à API é gerado pelo próprio Render (generateValue) — você
+# não precisa inventar nem digitar. Depois de subir, ele aparece em
+# Environment, e é esse valor que vai no console de prospecção e no .env do
+# front-end.
+# ═══════════════════════════════════════════════════════════════════════════
+
+services:
+  - type: web
+    name: atlas-geo
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+
+    # 0.5 CPU / 512 MB. O download da base do IBAMA é feito em streaming para
+    # disco, não para a memória — o pico medido do processo é de ~36 MB, então
+    # este plano tem folga confortável.
+    #
+    # NÃO use o plano `free` aqui: ele hiberna o serviço por inatividade, e a
+    # rotina diária de mineração dorme dentro do processo. Serviço hibernado
+    # significa mineração que nunca dispara e prazo de defesa que vence sem
+    # ninguém ver.
+    plan: 0.5c-512mb
+
+    healthCheckPath: /health
+
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: atlas-geo-db
+          property: connectionString
+
+      # Gerado pelo Render. É a senha de acesso à API.
+      - key: ATLAS_API_TOKEN
+        generateValue: true
+
+      # Única coisa que o Render vai te pedir na hora do Apply.
+      # A mesma chave Claude que você já usa serve.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+
+      # Hora da mineração diária, em UTC. 09 = 06h de Brasília.
+      - key: ROTINA_DIARIA_HORA
+        value: "09"
+
+      # Onde os CSVs do IBAMA ficam. /tmp é gravável e não exige disco pago;
+      # se o container reiniciar e o arquivo sumir, o serviço rebaixa sozinho.
+      - key: BASE_IBAMA_DIR
+        value: /tmp/dados_ibama
+
+      # Troque por https://seu-front.vercel.app quando o front-end estiver no
+      # ar, para que só ele possa chamar a API.
+      - key: ALLOWED_ORIGINS
+        value: "*"
+
+databases:
+  - name: atlas-geo-db
+    plan: 0.5c-1g
+    # ATENÇÃO: existe um plano gratuito de Postgres no Render, mas ele EXPIRA
+    # em 30 dias e o banco é apagado junto. Como aqui mora a carteira de
+    # prospectos e o histórico do funil, o plano pago é deliberado.

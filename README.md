@@ -190,7 +190,26 @@ dele. Plataforma que hiberna por inatividade nunca dispara a mineração — se 
 sua hibernar, desligue esse comportamento ou troque o agendador embutido por um
 cron externo chamando `POST /api/prospeccao/rotina-diaria`.
 
-### Passos, em qualquer plataforma
+### No Render — caminho de menor atrito
+
+O arquivo `render.yaml` na raiz é um Blueprint: provisiona serviço e banco de
+uma vez. No painel do Render, **New → Blueprint**, escolha este repositório e
+confirme. Ele pede **uma única coisa** — a chave da Anthropic. O token de
+acesso à API é gerado pelo próprio Render e aparece depois em *Environment*.
+
+Duas escolhas deliberadas no blueprint, que valem entender:
+
+**O plano do serviço não é o gratuito.** O plano `free` do Render hiberna por
+inatividade, e a rotina diária dorme dentro do processo — serviço hibernado é
+mineração que nunca dispara. O blueprint usa `0.5c-512mb`, que fica sempre
+ligado. Cabe com folga: o download da base é feito em streaming para disco, com
+pico medido de ~36 MB de memória.
+
+**O Postgres também não é o gratuito.** O plano grátis do Render **expira em 30
+dias e apaga o banco** — e é ali que moram a carteira de prospectos e o
+histórico do funil.
+
+### Passos, em qualquer outra plataforma
 
 1. Aponte o deploy para este repositório.
 2. Provisione um **PostgreSQL** e garanta que `DATABASE_URL` chegue ao serviço.

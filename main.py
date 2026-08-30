@@ -99,10 +99,23 @@ _cache_casos: dict[int, list] = {}
 
 
 def _casos(ano: int):
+    """
+    Casos do ano, em cache de processo.
+
+    Se o CSV não estiver no disco, baixa sozinho. Isso importa porque o disco
+    de um container é efêmero na maioria das plataformas: depois de um
+    reinício o arquivo some, e sem isso o ranking passaria a responder 404 até
+    alguém perceber e disparar a atualização à mão.
+    """
     if ano not in _cache_casos:
         arq = Path(BASE_IBAMA) / f"auto_infracao_{ano}.csv"
         if not arq.exists():
-            raise HTTPException(404, f"Base de {ano} ainda não baixada. Chame POST /api/prospeccao/atualizar.")
+            try:
+                prospeccao.baixar_base(BASE_IBAMA, [ano])
+            except Exception as e:
+                raise HTTPException(502, f"Base de {ano} ausente e o download falhou: {e}")
+            if not arq.exists():
+                raise HTTPException(404, f"O pacote do IBAMA não contém dados de {ano}.")
         _cache_casos[ano] = prospeccao.ingerir(arq)
     return _cache_casos[ano]
 

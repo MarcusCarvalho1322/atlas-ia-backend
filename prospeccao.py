@@ -255,21 +255,41 @@ URL_PACOTE = ("https://stibamadadosabertosprd.blob.core.windows.net/dados-aberto
 
 
 def baixar_base(destino: str | Path, anos: list[int] | None = None, timeout: float = 600.0) -> list[Path]:
-    """Baixa o pacote do IBAMA e extrai os CSVs dos anos pedidos."""
-    import zipfile, io, httpx
+    """
+    Baixa o pacote do IBAMA e extrai os CSVs dos anos pedidos.
+
+    O download é gravado em arquivo temporário no disco, não em memória: o
+    pacote passa de 115 MB e, somado à extração, estouraria a folga de uma
+    instância pequena. Assim o serviço roda confortável em 512 MB.
+    """
+    import zipfile, tempfile, os, httpx
     destino = Path(destino); destino.mkdir(parents=True, exist_ok=True)
     anos = anos or [date.today().year]
-    with httpx.stream("GET", URL_PACOTE, timeout=timeout, follow_redirects=True) as r:
-        r.raise_for_status()
-        buf = io.BytesIO()
-        for chunk in r.iter_bytes(1 << 20):
-            buf.write(chunk)
-    extraidos = []
-    with zipfile.ZipFile(buf) as z:
-        for ano in anos:
-            nome = f"auto_infracao_{ano}.csv"
-            if nome in z.namelist():
+
+    tmp = tempfile.NamedTemporaryFile(suffix=".zip", delete=False)
+    try:
+        with httpx.stream("GET", URL_PACOTE, timeout=timeout, follow_redirects=True) as r:
+            r.raise_for_status()
+            for chunk in r.iter_bytes(1 << 20):
+                tmp.write(chunk)
+        tmp.close()
+
+        extraidos = []
+        with zipfile.ZipFile(tmp.name) as z:
+            nomes = set(z.namelist())
+            for ano in anos:
+                nome = f"auto_infracao_{ano}.csv"
+                if nome not in nomes:
+                    continue
                 alvo = destino / nome
-                alvo.write_bytes(z.read(nome))
+                # Extração em blocos, pelo mesmo motivo do download.
+                with z.open(nome) as origem, open(alvo, "wb") as saida:
+                    while bloco := origem.read(1 << 20):
+                        saida.write(bloco)
                 extraidos.append(alvo)
-    return extraidos
+        return extraidos
+    finally:
+        try:
+            os.unlink(tmp.name)
+        except OSError:
+            pass
