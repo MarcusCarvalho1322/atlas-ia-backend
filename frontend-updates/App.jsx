@@ -16,7 +16,7 @@
 // a ser um objeto { "1.1": "ok" | "fail" | "na", ... } com os 60 itens.
 import { useState, useCallback } from 'react'
 import './index.css'
-import { API_BASE, authHeaders } from './config'
+import { API_BASE, authHeaders, ENDPOINT_AUDITORIA, MODO } from './config'
 import IntakeTab from './components/IntakeTab'
 import AuditoriaTab from './components/AuditoriaTab'
 import EstrategiaTab from './components/EstrategiaTab'
@@ -72,7 +72,7 @@ export default function App() {
   const runAudit = useCallback(async () => {
     setAuditando(true)
     try {
-      const res = await fetch(`${API_BASE}/api/auditoria`, {
+      const res = await fetch(`${API_BASE}${ENDPOINT_AUDITORIA}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
         body: JSON.stringify({ respostas: formData.checks, valorMulta: formData.valorMulta, casoId }),
@@ -81,9 +81,14 @@ export default function App() {
       const r = await res.json()
       setAuditResult(r)
       setActiveTab('auditoria')
+      // O laudo técnico (modo cliente) e a auditoria completa (modo interno)
+      // têm formatos diferentes de propósito — a mensagem se adapta.
+      const naoConformes = r.nao_conformes ?? r.resumo?.falhas ?? 0
+      const avaliados = r.itens_verificados ?? ((r.resumo?.falhas || 0) + (r.resumo?.conformes || 0))
+      const indice = r.indice_de_inconformidade ?? r.score ?? 0
       showToast(
-        `Auditoria concluída — score ${r.score}/100 sobre ${r.resumo.falhas + r.resumo.conformes} itens avaliados`,
-        r.score >= 60 ? 'success' : r.score >= 30 ? 'warning' : 'danger'
+        `Análise concluída — ${naoConformes} não conformidade(s) em ${avaliados} itens verificados`,
+        indice >= 60 ? 'success' : indice >= 30 ? 'warning' : 'danger'
       )
     } catch (e) {
       showToast(`Não foi possível executar a auditoria: ${e.message}`, 'danger')
@@ -133,9 +138,9 @@ export default function App() {
     }
   }, [])
 
-  const scoreColor = auditResult
-    ? (auditResult.score >= 60 ? 'var(--success)' : auditResult.score >= 30 ? 'var(--gold)' : 'var(--danger)')
-    : 'var(--text2)'
+  const indice = auditResult ? (auditResult.indice_de_inconformidade ?? auditResult.score ?? 0) : null
+  const scoreColor = indice == null ? 'var(--text2)'
+    : (indice >= 60 ? 'var(--success)' : indice >= 30 ? 'var(--gold)' : 'var(--danger)')
 
   return (
     <>
@@ -148,7 +153,7 @@ export default function App() {
         </div>
         <div className="header-center">
           {formData.aiaNumero && <div className="hc-item">AIA: <span className="hc-val">{formData.aiaNumero}</span></div>}
-          {auditResult && <div className="hc-item">Score: <span className="hc-val" style={{ color: scoreColor }}>{auditResult.score}/100</span></div>}
+          {auditResult && <div className="hc-item">{MODO === 'interno' ? 'Score' : 'Inconformidade'}: <span className="hc-val" style={{ color: scoreColor }}>{indice}/100</span></div>}
           {formData.fase && <div className="hc-item"><span className="hc-val" style={{ fontSize: 10 }}>{formData.fase}</span></div>}
         </div>
         <div className="header-right">

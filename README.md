@@ -146,13 +146,38 @@ padrão do sistema.
 
 Todos aceitam `Authorization: Bearer <ATLAS_API_TOKEN>` quando essa variável está definida.
 
-## Deploy no Railway
+## Publicação
 
-1. No projeto **atlas-geo**: **+ New** → **GitHub Repo** → `atlas-ia-backend`.
-2. **+ New** → **Database** → **Add PostgreSQL** (o Railway preenche `DATABASE_URL`).
-3. Em **Variables** do serviço: `ANTHROPIC_API_KEY` e `ATLAS_API_TOKEN`.
-4. **Settings → Networking → Generate Domain**.
-5. Leve a URL e o token para o `.env` do front-end (ver `frontend-updates/README.md`).
+O serviço é um container padrão (ver `Dockerfile`) e roda em qualquer
+plataforma que aceite Docker ou Python. **Requisito não óbvio:** o processo
+precisa ficar vivo o tempo todo, porque a rotina diária dorme e acorda dentro
+dele. Plataforma que hiberna por inatividade nunca dispara a mineração — se a
+sua hibernar, desligue esse comportamento ou troque o agendador embutido por um
+cron externo chamando `POST /api/prospeccao/rotina-diaria`.
+
+### Passos, em qualquer plataforma
+
+1. Aponte o deploy para este repositório.
+2. Provisione um **PostgreSQL** e garanta que `DATABASE_URL` chegue ao serviço.
+3. Defina as variáveis: `ANTHROPIC_API_KEY`, `ATLAS_API_TOKEN`,
+   `ROTINA_DIARIA_HORA` (0–23 UTC; 09 = 06h de Brasília) e, opcionalmente,
+   `ALLOWED_ORIGINS` com o domínio do front-end.
+4. Gere o domínio público.
+5. Chame uma vez `POST /api/prospeccao/atualizar` para baixar a base do IBAMA
+   (~116 MB; só o ano corrente é extraído).
+6. Leve a URL e o token para o `.env` do front-end
+   (ver `frontend-updates/README.md`).
+
+### Dimensionamento
+
+Baixar e ingerir a base pede folga de memória — o pacote do IBAMA é lido em
+memória antes de extrair. **512 MB de RAM é o mínimo confortável**; 256 MB
+tende a apertar no dia da carga. Disco: ~120 MB para o pacote mais ~25 MB por
+ano extraído.
+
+O custo relevante desta operação não é hospedagem (fica abaixo de R$ 150/mês em
+qualquer plataforma séria) — é a API da Anthropic gerando peças, que escala com
+cliente atendido.
 
 ## Rodando localmente
 

@@ -1,0 +1,228 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ATLAS · Console de Prospecção</title>
+<!--
+  Console interno de mineração — arquivo único, sem build.
+
+  Por que HTML puro e não React: este console é ferramenta interna. Um arquivo
+  só, que abre em qualquer navegador ou é servido de qualquer lugar, sem npm,
+  sem compilação e sem pipeline. O ATLAS-IA (produto do cliente) continua em
+  React; isto aqui é a bancada de trabalho da equipe.
+
+  Configure o endereço e o token na tela — ficam salvos no navegador.
+-->
+<style>
+:root{
+  --bg:#12140f; --surface:#1a1d16; --surface-2:#22261d; --line:#33382a;
+  --ink:#e8e6dc; --ink-dim:#a3a696; --ink-faint:#6f7364;
+  --amber:#d4a03c; --amber-dim:#8a6a28;
+  --urgent:#d9603f; --urgent-bg:#2e1a15;
+  --ok:#7ba05b; --info:#5b8aa0;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+header{border-bottom:1px solid var(--line);padding:16px 24px;display:flex;
+  gap:20px;align-items:center;flex-wrap:wrap;background:var(--surface)}
+.brand{font-weight:800;letter-spacing:.5px}
+.brand span{color:var(--amber)}
+.brand small{display:block;font-weight:400;font-size:11px;color:var(--ink-faint);letter-spacing:1.5px;text-transform:uppercase}
+.cfg{margin-left:auto;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+input,select,button{font:inherit;background:var(--surface-2);color:var(--ink);
+  border:1px solid var(--line);border-radius:6px;padding:7px 11px}
+input{font-family:var(--mono);font-size:12.5px}
+button{cursor:pointer;font-weight:600}
+button.primary{background:var(--amber);color:#1a1509;border-color:var(--amber)}
+button.primary:hover{filter:brightness(1.1)}
+button:disabled{opacity:.5;cursor:not-allowed}
+main{padding:24px;max-width:1400px;margin:0 auto}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:24px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+.kpi .lbl{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.9px;color:var(--ink-faint)}
+.kpi .val{font-size:26px;font-weight:800;margin-top:6px;font-variant-numeric:tabular-nums}
+.kpi .sub{font-size:12px;color:var(--ink-dim);margin-top:2px}
+.kpi.urgent{border-color:var(--urgent)}
+.kpi.urgent .val{color:var(--urgent)}
+.tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:8px 15px;border-radius:20px;border:1px solid var(--line);
+  background:var(--surface);color:var(--ink-dim);cursor:pointer;font-size:13.5px}
+.tab.on{background:var(--amber);color:#1a1509;border-color:var(--amber);font-weight:700}
+.filtros{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap;font-size:13px;color:var(--ink-dim)}
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:13.5px}
+th{text-align:left;font-family:var(--mono);font-size:10.5px;letter-spacing:.7px;
+  text-transform:uppercase;color:var(--ink-faint);padding:11px 12px;
+  border-bottom:1px solid var(--line);white-space:nowrap;background:var(--surface-2)}
+td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface-2)}
+.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.mono{font-family:var(--mono);font-size:12px}
+.pill{display:inline-block;padding:2px 8px;border-radius:11px;font-size:10.5px;
+  font-family:var(--mono);font-weight:600;white-space:nowrap}
+.p-urg{background:var(--urgent-bg);color:var(--urgent)}
+.p-amber{background:#2e2515;color:var(--amber)}
+.p-info{background:#16262e;color:var(--info)}
+.sinal{font-size:12px;color:var(--ink-dim);margin-top:3px}
+.vazio{padding:44px;text-align:center;color:var(--ink-faint)}
+.erro{background:var(--urgent-bg);border:1px solid var(--urgent);color:var(--urgent);
+  padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:13.5px}
+.rodape{margin-top:24px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--ink-faint);line-height:1.7}
+.acoes{display:flex;gap:4px}
+.acoes button{padding:4px 9px;font-size:11px;font-weight:500}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">ATLAS<span>·</span>PROSPECÇÃO<small>Console interno de mineração</small></div>
+  <div class="cfg">
+    <input id="api" placeholder="https://seu-backend.up.railway.app" size="34">
+    <input id="tok" placeholder="token" type="password" size="14">
+    <button onclick="salvarCfg()">Salvar</button>
+    <button class="primary" id="btnRodar" onclick="rodarRotina()">Rodar mineração</button>
+  </div>
+</header>
+
+<main>
+  <div id="erro"></div>
+  <div class="kpis" id="kpis"></div>
+  <div class="tabs" id="tabs"></div>
+  <div class="filtros">
+    <label>UF <input id="fUf" size="3" placeholder="PA" oninput="render()"></label>
+    <label>Multa mínima R$ <input id="fVal" size="10" placeholder="500000" oninput="render()"></label>
+    <span id="contagem"></span>
+  </div>
+  <div class="wrap"><table>
+    <thead><tr>
+      <th>Auto</th><th>Local</th><th class="num">Multa</th><th class="num">Prazo</th>
+      <th>Constatações</th><th>Doc.</th><th>Status</th><th></th>
+    </tr></thead>
+    <tbody id="linhas"></tbody>
+  </table></div>
+  <div class="rodape" id="rodape"></div>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+let BOLETIM = null, ABA = 'urgencia';
+
+const SECOES = [
+  ['urgencia','Prazo vencendo'],
+  ['novos_hoje','Novos hoje'],
+  ['decurso_superior_a_3_anos','Decurso > 3 anos'],
+  ['inversao_temporal','Inversão temporal'],
+];
+
+function cfg(){ return { api:(localStorage.atlasApi||'').replace(/\/$/,''), tok:localStorage.atlasTok||'' }; }
+function salvarCfg(){
+  localStorage.atlasApi = $('#api').value.trim();
+  localStorage.atlasTok = $('#tok').value.trim();
+  carregar();
+}
+function headers(){ const {tok}=cfg(); return tok?{Authorization:'Bearer '+tok}:{}; }
+function brl(v){ return v==null?'—':'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+function erro(m){ $('#erro').innerHTML = m ? `<div class="erro">${m}</div>` : ''; }
+
+async function api(caminho, opt={}){
+  const {api} = cfg();
+  if(!api) throw new Error('Informe o endereço do backend no campo acima.');
+  const r = await fetch(api+caminho, {...opt, headers:{...headers(), ...(opt.headers||{})}});
+  if(!r.ok){
+    const t = await r.text().catch(()=> '');
+    throw new Error(`HTTP ${r.status}${t?' — '+t.slice(0,180):''}`);
+  }
+  return r.json();
+}
+
+async function carregar(){
+  erro('');
+  try{
+    BOLETIM = await api('/api/prospeccao/boletim?topo=200');
+    render();
+  }catch(e){ erro('Não foi possível carregar o boletim: '+e.message); }
+}
+
+async function rodarRotina(){
+  const b = $('#btnRodar'); b.disabled = true; b.textContent = 'Minerando…'; erro('');
+  try{
+    const r = await api('/api/prospeccao/rotina-diaria', {method:'POST'});
+    BOLETIM = r.boletim;
+    render();
+    erro(`Mineração concluída: ${r.sincronizacao.novos} novo(s), ${r.sincronizacao.alterados} alterado(s) na fonte.`);
+  }catch(e){ erro('Falha na mineração: '+e.message); }
+  b.disabled = false; b.textContent = 'Rodar mineração';
+}
+
+async function mover(numAuto, status){
+  try{
+    await api('/api/prospeccao/'+encodeURIComponent(numAuto), {
+      method:'PATCH', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({status})
+    });
+    await carregar();
+  }catch(e){ erro('Não foi possível mover o caso: '+e.message); }
+}
+
+function render(){
+  if(!BOLETIM){ $('#linhas').innerHTML = '<tr><td colspan="8" class="vazio">Informe o endereço do backend e carregue o boletim.</td></tr>'; return; }
+  const b = BOLETIM;
+
+  $('#kpis').innerHTML = `
+    <div class="kpi"><div class="lbl">Carteira ativa</div><div class="val">${b.carteira_ativa.toLocaleString('pt-BR')}</div><div class="sub">${brl(b.valor_em_acompanhamento)} em multas</div></div>
+    <div class="kpi urgent"><div class="lbl">Prazo vencendo</div><div class="val">${b.urgencia.total}</div><div class="sub">${brl(b.urgencia.valor)}</div></div>
+    <div class="kpi"><div class="lbl">Novos hoje</div><div class="val">${b.novos_hoje.total}</div><div class="sub">${brl(b.novos_hoje.valor)}</div></div>
+    <div class="kpi"><div class="lbl">Decurso > 3 anos</div><div class="val">${b.decurso_superior_a_3_anos.total}</div><div class="sub">${brl(b.decurso_superior_a_3_anos.valor)}</div></div>
+    <div class="kpi"><div class="lbl">Inversão temporal</div><div class="val">${b.inversao_temporal.total}</div><div class="sub">${brl(b.inversao_temporal.valor)}</div></div>`;
+
+  $('#tabs').innerHTML = SECOES.map(([k,rot]) =>
+    `<div class="tab ${ABA===k?'on':''}" onclick="ABA='${k}';render()">${rot} <b>${b[k].total}</b></div>`).join('');
+
+  const uf = $('#fUf').value.trim().toUpperCase();
+  const vmin = parseFloat($('#fVal').value) || 0;
+  let casos = (b[ABA].casos||[])
+    .filter(c => !uf || (c.uf||'')===uf)
+    .filter(c => (c.valor||0) >= vmin);
+
+  $('#contagem').textContent = `— exibindo ${casos.length} de ${b[ABA].total}`;
+
+  $('#linhas').innerHTML = casos.length ? casos.map(c => {
+    const d = c.dias_para_defesa;
+    const prazo = d==null ? '<span class="mono" style="color:var(--ink-faint)">—</span>'
+      : d < 0 ? `<span class="pill p-info">vencido</span>`
+      : `<span class="pill ${d<=5?'p-urg':'p-amber'}">${d}d</span>`;
+    const sinais = (c.sinais||[]).map(s=>`<div class="sinal">· ${s.constatacao}</div>`).join('');
+    return `<tr>
+      <td class="mono">${c.num_auto}${c.processo?`<div class="sinal">${c.processo}</div>`:''}</td>
+      <td>${c.uf||'—'} · ${c.municipio||'—'}<div class="sinal">${c.bioma||''} ${c.tipo_infracao?'· '+c.tipo_infracao:''}</div></td>
+      <td class="num">${brl(c.valor)}</td>
+      <td class="num">${prazo}</td>
+      <td style="min-width:280px">${sinais||'<span class="sinal">—</span>'}</td>
+      <td class="mono">${c.documento_mascarado||'—'}<div class="sinal">${c.tipo_pessoa||''}</div></td>
+      <td><span class="pill p-info">${c.status}</span></td>
+      <td><div class="acoes">
+        <button onclick="mover('${c.num_auto}','selecionado')">Selecionar</button>
+        <button onclick="mover('${c.num_auto}','contatado')">Contatado</button>
+        <button onclick="mover('${c.num_auto}','descartado')">Descartar</button>
+      </div></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="8" class="vazio">Nenhum caso nesta seção com os filtros atuais.</td></tr>';
+
+  $('#rodape').innerHTML = `
+    Fonte: ${b.fonte}<br>${b.aviso}<br>
+    Funil: ${Object.entries(b.por_status).map(([k,v])=>`${k} ${v}`).join(' · ')} —
+    boletim de ${b.data}.<br>
+    O nome do autuado não é exibido neste console. O documento aparece mascarado.`;
+}
+
+$('#api').value = localStorage.atlasApi || '';
+$('#tok').value = localStorage.atlasTok || '';
+if(localStorage.atlasApi) carregar(); else render();
+</script>
+</body>
+</html>

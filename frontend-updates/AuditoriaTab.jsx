@@ -8,7 +8,7 @@
 // Onde as duas fontes do acervo divergem sobre a taxa de êxito, a tela mostra
 // a divergência em vez de escondê-la atrás de um número único.
 import { useState } from 'react'
-import { API_BASE, authHeaders } from '../config'
+import { API_BASE, authHeaders, MODO } from '../config'
 
 function GeoCard({ formData, casoId, showToast }) {
     const [loading, setLoading] = useState(false)
@@ -81,6 +81,75 @@ function GeoCard({ formData, casoId, showToast }) {
     )
 }
 
+const CORES_GRAV = { DETERMINANTE: 'var(--danger)', RELEVANTE: 'var(--warning)', ACESSORIO: 'var(--gold)' }
+
+function LaudoTecnico({ laudo, formData, casoId, setActiveTab, showToast }) {
+    const g = laudo.distribuicao_por_gravidade || {}
+    return (
+        <div>
+            <div className="section-title">🔬 Laudo Técnico</div>
+            <div className="section-sub">
+                {laudo.nao_conformes} não conformidade(s) em {laudo.itens_verificados} itens verificados,
+                de um protocolo de {laudo.itens_no_protocolo}.
+            </div>
+
+            <div className="grid-2">
+                <div className="score-panel">
+                    <div className="score-number" style={{ color: 'var(--danger)' }}>{laudo.nao_conformes}</div>
+                    <div style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 10, letterSpacing: 2, color: 'var(--text2)', textTransform: 'uppercase', margin: '8px 0' }}>Não conformidades apuradas</div>
+                    <div className="score-stats">
+                        <div className="score-stat"><div className="score-stat-num" style={{ color: 'var(--danger)' }}>{g.determinante || 0}</div><div className="score-stat-label">Determinantes</div></div>
+                        <div className="score-stat"><div className="score-stat-num" style={{ color: 'var(--warning)' }}>{g.relevante || 0}</div><div className="score-stat-label">Relevantes</div></div>
+                        <div className="score-stat"><div className="score-stat-num" style={{ color: 'var(--gold)' }}>{g.acessorio || 0}</div><div className="score-stat-label">Acessórios</div></div>
+                    </div>
+                </div>
+                <div className="card">
+                    <div className="card-title">📋 Situação do Protocolo</div>
+                    <div style={{ fontSize: 13, color: 'var(--text2)', lineHeight: 2 }}>
+                        <div>✅ <strong style={{ color: 'var(--success)' }}>{laudo.conformes}</strong> itens conformes</div>
+                        <div>⚠️ <strong style={{ color: 'var(--danger)' }}>{laudo.nao_conformes}</strong> não conformidades</div>
+                        <div>— <strong style={{ color: 'var(--gold)' }}>{laudo.nao_aplicaveis}</strong> não aplicáveis</div>
+                    </div>
+                    {laudo.valor_da_multa_em_analise && (
+                        <div style={{ marginTop: 12, padding: '8px 12px', background: 'var(--bg3)', borderRadius: 4, fontSize: 13 }}>
+                            💰 Multa em análise: <strong style={{ color: 'var(--gold)' }}>R$ {Number(laudo.valor_da_multa_em_analise).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</strong>
+                        </div>
+                    )}
+                </div>
+            </div>
+
+            <div className="mt-24">
+                <div className="card-title">📑 Constatações — ordenadas por gravidade técnica</div>
+                {laudo.achados.map(a => (
+                    <div key={a.id} className="nulidade-card">
+                        <div className="nulidade-title">
+                            <span style={{ fontFamily: "'JetBrains Mono', monospace", color: CORES_GRAV[a.gravidade_tecnica] }}>{a.id}</span> — {a.constatacao}
+                        </div>
+                        <div className="nulidade-tese">{a.verificacao_realizada}</div>
+                        {a.providencia_tecnica && <div style={{ fontSize: 12.5, color: 'var(--text2)', marginTop: 5 }}>▸ {a.providencia_tecnica}</div>}
+                        <div className="nulidade-meta">
+                            <span className={`badge badge-${a.gravidade_tecnica === 'DETERMINANTE' ? 'danger' : a.gravidade_tecnica === 'RELEVANTE' ? 'warning' : 'gold'}`}>{a.gravidade_tecnica}</span>
+                            <span className="badge badge-info">{a.modulo}</span>
+                        </div>
+                    </div>
+                ))}
+            </div>
+
+            <div className="card" style={{ marginTop: 20 }}>
+                <div className="card-title">Metodologia</div>
+                <div style={{ fontSize: 12.5, color: 'var(--text2)', lineHeight: 1.7 }}>{laudo.metodologia}</div>
+            </div>
+
+            <div className="alert-box warning" style={{ marginTop: 16 }}>
+                <div className="alert-title">⚠ ALCANCE DESTE DOCUMENTO</div>
+                <div className="alert-content">{laudo.aviso}</div>
+            </div>
+
+            <GeoCard formData={formData} casoId={casoId} showToast={showToast} />
+        </div>
+    )
+}
+
 export default function AuditoriaTab({ auditResult, formData, casoId, setActiveTab, showToast }) {
     if (!auditResult) return (
         <div className="spinner-wrap">
@@ -91,8 +160,14 @@ export default function AuditoriaTab({ auditResult, formData, casoId, setActiveT
         </div>
     )
 
-    // Formato antigo (casos salvos antes da integração dos 55 itens)
-    const formatoAntigo = !auditResult.teses_acionaveis && auditResult.nulidades
+    // O componente recebe três formatos diferentes, de propósito:
+    //  · laudo técnico (modo cliente)  → achados, sem tese e sem taxa
+    //  · auditoria completa (interno)  → falhas + teses_acionaveis
+    //  · formato antigo de 20 itens    → nulidades (casos salvos antes)
+    const ehLaudo = auditResult.tipo === 'laudo_tecnico'
+    const formatoAntigo = !ehLaudo && !auditResult.teses_acionaveis && auditResult.nulidades
+
+    if (ehLaudo) return <LaudoTecnico laudo={auditResult} formData={formData} casoId={casoId} setActiveTab={setActiveTab} showToast={showToast} />
     const { score, resumo, por_modulo, falhas = [], teses_acionaveis = [] } = auditResult
     const scoreColor = score >= 60 ? 'var(--success)' : score >= 30 ? 'var(--gold)' : 'var(--danger)'
 
