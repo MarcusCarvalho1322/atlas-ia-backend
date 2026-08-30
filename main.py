@@ -29,6 +29,7 @@ from db import Base, engine, get_db
 from models import Caso
 import geo_service
 import ai_service
+import catalogo
 
 Base.metadata.create_all(bind=engine)
 
@@ -67,6 +68,37 @@ def root():
 @app.get("/health")
 def health():
     return {"ok": True}
+
+
+# ───────────────────────── Catálogo de auditoria ─────────────────────────
+# Fonte única de verdade: o front-end lê os itens daqui em vez de tê-los
+# escritos no próprio código (que era onde a duplicação vivia).
+
+@app.get("/api/catalogo")
+def obter_catalogo(authorization: Optional[str] = Header(None)):
+    _checar_auth(authorization)
+    return catalogo.carregar()
+
+
+class AuditoriaRequest(BaseModel):
+    respostas: dict[str, str]          # {"1.1": "ok" | "fail" | "na", ...}
+    casoId: Optional[str] = None       # se informado, o resultado é gravado no caso
+
+
+@app.post("/api/auditoria")
+def executar_auditoria(
+    req: AuditoriaRequest,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
+    _checar_auth(authorization)
+    resultado = catalogo.executar_auditoria(req.respostas)
+    if req.casoId:
+        caso = db.query(Caso).filter(Caso.id == req.casoId).first()
+        if caso:
+            caso.audit_result = resultado
+            db.commit()
+    return resultado
 
 
 # ───────────────────────── IA: diagnóstico + peças ─────────────────────────

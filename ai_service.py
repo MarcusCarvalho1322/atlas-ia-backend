@@ -50,14 +50,43 @@ PECAS_PROMPTS = {
 }
 
 
-def _nulidades_texto(nulidades: list[dict]) -> str:
-    if not nulidades:
+def _nulidades_texto(audit: dict | None) -> str:
+    """
+    Monta o bloco de nulidades para o prompt a partir do resultado da
+    auditoria. Aceita o formato novo (55 itens: chaves `falhas` e
+    `teses_acionaveis`) e o antigo (20 itens: chave `nulidades`), para que
+    casos já salvos continuem gerando peça sem precisar ser reauditados.
+    """
+    audit = audit or {}
+
+    if audit.get("falhas") or audit.get("teses_acionaveis"):
+        linhas = []
+        for t in audit.get("teses_acionaveis", []):
+            sustentam = ", ".join(i["id"] for i in t.get("itens_que_sustentam", []))
+            div = ""
+            if t.get("taxa_divergente") is not None:
+                div = (f" [ATENÇÃO: as fontes divergem — a outra registra "
+                       f"{t['taxa_divergente']}%; tratar a taxa como indicativa]")
+            linhas.append(
+                f"- {t['nome']} — êxito registrado {t['taxa']}%{div}\n"
+                f"    Fundamento: {t.get('fundamento','')}\n"
+                f"    Sustentada pelos itens: {sustentam or '—'}"
+            )
+        achados = [f"- [{f['risco']}] {f['id']} {f['titulo']}"
+                   for f in audit.get("falhas", []) if not f.get("teses")]
+        if achados:
+            linhas.append("\nFalhas sem tese de nulidade associada (instrução do caso):")
+            linhas += achados
+        return "\n".join(linhas) or "Nenhuma falha registrada na auditoria"
+
+    antigas = audit.get("nulidades") or []
+    if not antigas:
         return "Nenhuma nulidade identificada"
-    return "\n".join(f"- {n.get('name')} (Peso: {n.get('peso')}, Risco: {n.get('risco')})" for n in nulidades)
+    return "\n".join(f"- {n.get('name')} (Peso: {n.get('peso')}, Risco: {n.get('risco')})"
+                     for n in antigas)
 
 
 def gerar_diagnostico(form_data: dict, audit_result: dict | None) -> str:
-    nulidades = (audit_result or {}).get("nulidades", [])
     user_prompt = f"""Com base nos dados do processo e resultado da auditoria abaixo, gere um DIAGNÓSTICO ESTRATÉGICO COMPLETO.
 
 DADOS DO PROCESSO:
@@ -72,7 +101,7 @@ DADOS DO PROCESSO:
 - Data AIA: {form_data.get('dataLavratura') or '?'}
 
 NULIDADES IDENTIFICADAS:
-{_nulidades_texto(nulidades)}
+{_nulidades_texto(audit_result)}
 
 SCORE: {(audit_result or {}).get('score', 0)}/100
 
@@ -96,10 +125,7 @@ GERE COM ESTAS 6 SEÇÕES:
 def gerar_peca(peca_id: int, form_data: dict, audit_result: dict | None) -> str:
     if peca_id not in PECAS_PROMPTS:
         peca_id = 1
-    nulidades = (audit_result or {}).get("nulidades", [])
-    nuls_txt = "\n".join(
-        f"- {n.get('name')} ({n.get('risco')}, peso {n.get('peso')}): {n.get('tese')}" for n in nulidades
-    ) or "Sem nulidades identificadas"
+    nuls_txt = _nulidades_texto(audit_result)
 
     dados = (
         f"AIA: {form_data.get('aiaNumero') or '?'}, Autuado: {form_data.get('nomeAuituado') or '?'}, "

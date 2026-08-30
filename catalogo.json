@@ -1,0 +1,965 @@
+{
+ "versao": "1.0",
+ "origem": [
+  "ATLAS-IA (app React)",
+  "ATLAS FORENSE v2.1 (repositórios GitHub)"
+ ],
+ "regra_de_peso": "Peso derivado do risco: CRÍTICO=10, ALTO=7, MÉDIO=4. Regra pública e uniforme — nenhum peso foi atribuído item a item.",
+ "pontuacao_maxima": 448,
+ "modulos": [
+  {
+   "id": "M1",
+   "titulo": "Elementos Formais do Auto de Infração",
+   "qtd": 12
+  },
+  {
+   "id": "M2",
+   "titulo": "Análise de Competência Fiscalizatória",
+   "qtd": 6
+  },
+  {
+   "id": "M3",
+   "titulo": "Verificação da Notificação",
+   "qtd": 5
+  },
+  {
+   "id": "M4",
+   "titulo": "Análise das Provas e Laudos do IBAMA",
+   "qtd": 8
+  },
+  {
+   "id": "M5",
+   "titulo": "Auditoria do Valor e Cálculo da Multa",
+   "qtd": 6
+  },
+  {
+   "id": "M6",
+   "titulo": "Análise de Prescrição Punitiva e Executória",
+   "qtd": 6
+  },
+  {
+   "id": "M7",
+   "titulo": "Verificação da CDA e Processo Judicial",
+   "qtd": 6
+  },
+  {
+   "id": "M8",
+   "titulo": "Checklist de Estratégia e Coordenação Defensiva",
+   "qtd": 6
+  }
+ ],
+ "itens": [
+  {
+   "id": "1.1",
+   "modulo": "M1",
+   "titulo": "Identificação completa do autuado",
+   "pergunta": "Nome/Razão Social, CPF/CNPJ e endereço presentes e corretos no auto?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Ausência: nulidade absoluta por violação ao contraditório",
+   "acao": "▸ Se incorretos: juntar documentos de identificação corretos e arguir nulidade por erro de sujeito passivo",
+   "teses": [
+    "N08"
+   ]
+  },
+  {
+   "id": "1.2",
+   "modulo": "M1",
+   "titulo": "Descrição objetiva e clara dos fatos",
+   "pergunta": "A conduta está descrita com especificidade suficiente para exercício do contraditório?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Descrição vaga = violação da legalidade estrita",
+   "acao": "▸ Se vaga: arguir nulidade por ausência de tipicidade precisa (TRF1 — AC 0035210-74.2009)",
+   "teses": [
+    "N07"
+   ]
+  },
+  {
+   "id": "1.3",
+   "modulo": "M1",
+   "titulo": "Dispositivo legal infringido",
+   "pergunta": "O artigo do Decreto 6.514/08 citado no auto corresponde exatamente à conduta descrita?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Tipificação errada = conduta atípica = nulidade",
+   "acao": "▸ Comparar a conduta descrita com os elementos do tipo legal citado. Qualquer divergência = arguir atipicidade",
+   "teses": [
+    "N07"
+   ]
+  },
+  {
+   "id": "1.4",
+   "modulo": "M1",
+   "titulo": "Penalidade aplicada e valor da multa",
+   "pergunta": "Estão expressos no auto com cálculo discriminado (valor base × área/quantidade)?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Sem memória de cálculo: multa arbitrária",
+   "acao": "▸ Requerer a memória de cálculo via requerimento administrativo. Sem ela, a dosimetria é impugnável",
+   "teses": [
+    "N01",
+    "N24"
+   ]
+  },
+  {
+   "id": "1.5",
+   "modulo": "M1",
+   "titulo": "Local, data e hora da lavratura",
+   "pergunta": "Presentes no auto? A data é a mesma ou posterior à data da vistoria?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Auto lavrado antes da vistoria = inversão temporal = nulidade (TRF2)",
+   "acao": "▸ Comparar data do auto com data do relatório de vistoria. Se relatório é posterior ao auto: nulidade por alteração da ordem cronológica dos atos",
+   "teses": []
+  },
+  {
+   "id": "1.6",
+   "modulo": "M1",
+   "titulo": "Identificação e assinatura do agente autuador",
+   "pergunta": "Nome, matrícula IBAMA e assinatura legíveis? A matrícula é de fiscal com credencial válida para o tipo de infração?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Fiscal sem credencial ou com matrícula de outra área: incompetência funcional",
+   "acao": "▸ Pesquisar no portal do IBAMA a matrícula e a lotação do fiscal. Verificar se sua credencial abrangia o tipo de infração autuada",
+   "teses": [
+    "N04"
+   ]
+  },
+  {
+   "id": "1.7",
+   "modulo": "M1",
+   "titulo": "Assinatura do autuado ou nota de recusa com 2 testemunhas",
+   "pergunta": "Se autuado presente: assinou ou há nota de recusa com identificação de 2 servidores como testemunhas?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Recusa sem testemunhas qualificadas: vício de forma",
+   "acao": "▸ Verificar quem são as \"testemunhas\" — se forem o próprio fiscal e pessoa sem vínculo com o IBAMA, há vício",
+   "teses": []
+  },
+  {
+   "id": "1.8",
+   "modulo": "M1",
+   "titulo": "Prazo para recolhimento ou defesa",
+   "pergunta": "Está indicado no auto o prazo de 20 dias para apresentação de defesa?",
+   "risco": "MEDIO",
+   "peso": 4,
+   "nota_risco": "🟡 MÉDIO — Ausência pode gerar confusão sobre início do prazo",
+   "acao": "▸ Se ausente ou com prazo diferente dos 20 dias legais: arguir que o prazo só começa da ciência inequívoca do autuado",
+   "teses": [
+    "N13"
+   ]
+  },
+  {
+   "id": "1.9",
+   "modulo": "M1",
+   "titulo": "Relatório de Vistoria anexo",
+   "pergunta": "Há relatório de vistoria juntado ao auto com metodologia, equipamentos e condições climáticas?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Ausente em ~40% dos processos analisados. Vício frequente e arguível",
+   "acao": "▸ Se ausente: requerer juntada e arguir nulidade por impossibilidade de contraditório técnico sem conhecimento da metodologia",
+   "teses": [
+    "N05"
+   ]
+  },
+  {
+   "id": "1.10",
+   "modulo": "M1",
+   "titulo": "Coordenadas GPS do local",
+   "pergunta": "O auto e/ou relatório indicam as coordenadas geográficas precisas da infração (datum SIRGAS 2000)?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Sem coordenadas: impossível localizar precisamente e comparar com imagens de satélite",
+   "acao": "▸ Se ausente: argumentar que a área exata da infração não foi determinada — impossibilidade de verificação técnica",
+   "teses": [
+    "N21"
+   ]
+  },
+  {
+   "id": "1.11",
+   "modulo": "M1",
+   "titulo": "Certificado de calibração dos equipamentos",
+   "pergunta": "GPS e instrumentos de medição usados têm certificado INMETRO vigente na data da vistoria?",
+   "risco": "MEDIO",
+   "peso": 4,
+   "nota_risco": "🟡 MÉDIO — Equipamento sem calibração: laudo de medição tecnicamente impugnável",
+   "acao": "▸ Requerer os certificados via requerimento administrativo. Se não entregues em 10 dias, arguir cerceamento de defesa",
+   "teses": [
+    "N12"
+   ]
+  },
+  {
+   "id": "1.12",
+   "modulo": "M1",
+   "titulo": "Ordem de Serviço autorizando a fiscalização",
+   "pergunta": "Há no processo a OS ou despacho da chefia autorizando a diligência específica?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Sem OS: fiscal agiu sem delegação formal. TRF1 anulou autos nesta situação",
+   "acao": "▸ Requerer juntada da OS. Se inexistente: arguir nulidade por falta de delegação legal para o ato de fiscalização",
+   "teses": [
+    "N11"
+   ]
+  },
+  {
+   "id": "2.1",
+   "modulo": "M2",
+   "titulo": "Imóvel sob licença estadual anterior",
+   "pergunta": "O imóvel ou atividade possuía licença ambiental estadual vigente antes da autuação federal?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Se sim: IBAMA não pode autuar pelo mesmo fato (LC 140, art. 17) — bis in idem",
+   "acao": "▸ Se sim: copiar a licença estadual e arguir incompetência do IBAMA. Taxa de êxito: 71%",
+   "teses": [
+    "N04"
+   ]
+  },
+  {
+   "id": "2.2",
+   "modulo": "M2",
+   "titulo": "Autuação estadual paralela pelo mesmo fato",
+   "pergunta": "Existe auto de infração estadual (OEMA) sobre os mesmos fatos, área e período?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Dupla autuação é bis in idem. A segunda em ordem temporal é nula",
+   "acao": "▸ Pesquisar no sistema do OEMA estadual. Requerer certidão de inexistência ou cópia do auto estadual",
+   "teses": [
+    "N02"
+   ]
+  },
+  {
+   "id": "2.3",
+   "modulo": "M2",
+   "titulo": "Imóvel em zona urbana sem bem da União",
+   "pergunta": "A infração ocorreu em zona urbana e não envolve bem da União, UC federal ou espécie federal ameaçada?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Em zona urbana, competência é municipal ou estadual (LC 140, arts. 9-11)",
+   "acao": "▸ Verificar zoneamento do município na data. Se área urbana: IBAMA sem competência",
+   "teses": [
+    "N04"
+   ]
+  },
+  {
+   "id": "2.4",
+   "modulo": "M2",
+   "titulo": "Zona de amortecimento ou interior de UC?",
+   "pergunta": "Se a infração foi em zona de amortecimento de UC federal: a tipificação reflete isso (multa diferente)?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Interior da UC = multa muito maior. Se foi na ZA, multa pode ter sido excessiva",
+   "acao": "▸ Verificar Plano de Manejo da UC e confrontar com coordenadas GPS da infração. Solicitar sobreposição cartográfica",
+   "teses": [
+    "N04"
+   ]
+  },
+  {
+   "id": "2.5",
+   "modulo": "M2",
+   "titulo": "Espécie fauna/flora corretamente classificada",
+   "pergunta": "A espécie apontada no auto está na lista de espécies ameaçadas (IN MMA 148/2022) ou é espécie comum?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Espécie comum autuada como ameaçada = tipificação errada e multa excessiva",
+   "acao": "▸ Consultar a IN MMA 148/2022 e a lista CITES. Se espécie errada: requerer retipificação e redução da multa",
+   "teses": [
+    "N19"
+   ]
+  },
+  {
+   "id": "2.6",
+   "modulo": "M2",
+   "titulo": "Competência ANM/DNPM concorrente (mineração)",
+   "pergunta": "Se a infração envolve atividade minerária: há autuação da ANM pelo mesmo fato?",
+   "risco": "MEDIO",
+   "peso": 4,
+   "nota_risco": "🟡 MÉDIO — Dupla regulação ANM+IBAMA: verificar se configura bis in idem",
+   "acao": "▸ Pesquisar no sistema da ANM. Dupla autuação pelo mesmo ato material e bem jurídico = arguir bis in idem",
+   "teses": [
+    "N04"
+   ]
+  },
+  {
+   "id": "3.1",
+   "modulo": "M3",
+   "titulo": "Endereço de notificação correto",
+   "pergunta": "O AR foi enviado ao endereço real do autuado (e não ao endereço do CNPJ desatualizado na Receita)?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Nulidade por notificação em endereço errado. Reabre prazo de defesa integralmente",
+   "acao": "▸ Comparar endereço do AR com domicílio real à época. Comprovante de endereço da data + declaração são a prova",
+   "teses": [
+    "N06"
+   ]
+  },
+  {
+   "id": "3.2",
+   "modulo": "M3",
+   "titulo": "AR assinado pelo próprio autuado ou representante",
+   "pergunta": "Quem assinou o AR: o próprio, representante legal, ou porteiro/vizinho sem procuração?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Assinatura de terceiro sem poderes: notificação inválida — prazo não corre",
+   "acao": "▸ Se assinou terceiro: declaração do autuado informando que não tinha conhecimento até data X + prova da data real de ciência",
+   "teses": [
+    "N06"
+   ]
+  },
+  {
+   "id": "3.3",
+   "modulo": "M3",
+   "titulo": "Publicação no DOU justificada",
+   "pergunta": "Se notificado por DOU: houve tentativa prévia de AR frustrada documentada no processo?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — DOU sem AR frustrado = modalidade subsidiária usada indevidamente (TRF3)",
+   "acao": "▸ Verificar no processo se há devolução do AR antes do DOU. Se não: nulidade da notificação por DOU",
+   "teses": [
+    "N06"
+   ]
+  },
+  {
+   "id": "3.4",
+   "modulo": "M3",
+   "titulo": "Prazo de defesa computado corretamente",
+   "pergunta": "O prazo de 20 dias foi contado a partir da data do AR ou da entrega pessoal?",
+   "risco": "MEDIO",
+   "peso": 4,
+   "nota_risco": "🟡 MÉDIO — Prazo contado da data de emissão (não do recebimento): erro frequente",
+   "acao": "▸ Verificar se o IBAMA computou o prazo da data do AR ou da data de postagem. Só conta da data de recebimento",
+   "teses": [
+    "N06"
+   ]
+  },
+  {
+   "id": "3.5",
+   "modulo": "M3",
+   "titulo": "Notificação das decisões intermediárias",
+   "pergunta": "Para julgamentos de 1ª e 2ª instância, o autuado foi notificado da data e pauta?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Julgamento sem notificação = cerceamento de defesa (art. 44, Lei 9.784/99)",
+   "acao": "▸ Se houve julgamento sem notificação prévia: arguir nulidade por cerceamento de defesa e nulidade da decisão",
+   "teses": [
+    "N13"
+   ]
+  },
+  {
+   "id": "4.1",
+   "modulo": "M4",
+   "titulo": "Imagens de satélite com metadados completos",
+   "pergunta": "As imagens DETER/PRODES têm data, datum, resolução e identificação do analista documentados?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Imagem sem metadados tem autenticidade e localização questionáveis",
+   "acao": "▸ Solicitar os metadados completos. Sem eles: arguir que a prova não atende padrão técnico probatório",
+   "teses": [
+    "N09"
+   ]
+  },
+  {
+   "id": "4.2",
+   "modulo": "M4",
+   "titulo": "Vistoria in loco confirmando o alerta de satélite",
+   "pergunta": "Há relatório de vistoria de campo confirmando o que foi visto no DETER? Ou a autuação baseou-se apenas na imagem?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Autuação só por DETER sem vistoria = prova insuficiente (TRF1 — AC 0014232)",
+   "acao": "▸ Se só há imagem: arguir que o DETER detecta alterações de cobertura (colheita, manejo, nuvens) — não comprova desmatamento ilegal per se",
+   "teses": [
+    "N09"
+   ]
+  },
+  {
+   "id": "4.3",
+   "modulo": "M4",
+   "titulo": "Fotos com EXIF e georreferenciamento",
+   "pergunta": "As fotos do auto têm dados EXIF com data/hora e coordenadas GPS?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Fotos sem EXIF não provam local ou data da infração",
+   "acao": "▸ Solicitar os arquivos originais das fotos. Verificar EXIF com software gratuito (ExifTool). Se sem coordenadas: contestar localização",
+   "teses": [
+    "N23"
+   ]
+  },
+  {
+   "id": "4.4",
+   "modulo": "M4",
+   "titulo": "Cadeia de custódia das amostras (fauna/flora/poluição)",
+   "pergunta": "Há formulário de cadeia de custódia das amostras? Laboratório credenciado?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Quebra da cadeia invalida laudos periciais (STJ — RHC 99.735/SP)",
+   "acao": "▸ Requerer o formulário e credencial do laboratório. Falha em qualquer elo: arguir nulidade do laudo",
+   "teses": [
+    "N10"
+   ]
+  },
+  {
+   "id": "4.5",
+   "modulo": "M4",
+   "titulo": "Metodologia de medição da área documentada",
+   "pergunta": "O relatório descreve como foi medida a área (GPS diferencial? Trena? Estação total?) e as condições do terreno?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Medição por \"estimativa visual\" é impugnável com laudo técnico independente",
+   "acao": "▸ Contratar laudo de medição com GPS GNSS de precisão submétrica e ART. Frequentemente a área real é 20-40% menor que a imputada",
+   "teses": [
+    "N22"
+   ]
+  },
+  {
+   "id": "4.6",
+   "modulo": "M4",
+   "titulo": "Classificação da vegetação correta",
+   "pergunta": "O fiscal classificou corretamente o estágio de regeneração ou tipologia da vegetação (primária vs secundária)?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Classificação errada muda o valor da multa por hectare drasticamente",
+   "acao": "▸ Laudo fitossociológico independente com inventário florístico. Identificar se é floresta primária, secundária em estágio avançado, médio ou inicial",
+   "teses": [
+    "N19"
+   ]
+  },
+  {
+   "id": "4.7",
+   "modulo": "M4",
+   "titulo": "Acesso ao imóvel regular",
+   "pergunta": "O fiscal entrou no imóvel com consentimento do proprietário ou mandado judicial?",
+   "risco": "MEDIO",
+   "peso": 4,
+   "nota_risco": "🟡 MÉDIO — Entrada sem consentimento pode contaminar provas (teoria dos frutos da árvore envenenada)",
+   "acao": "▸ Verificar se no RV há registro do consentimento. Se negado: estudar viabilidade de arguir ilicitude das provas obtidas",
+   "teses": []
+  },
+  {
+   "id": "4.8",
+   "modulo": "M4",
+   "titulo": "Nexo causal demonstrado",
+   "pergunta": "Há prova concreta de que o autuado foi o responsável direto pela conduta (não terceiro, não evento natural)?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Responsabilidade objetiva do proprietário tem limites — força maior e fato de terceiro excluem",
+   "acao": "▸ Verificar se há evidências no processo de quem praticou o ato. Proprietário não é automaticamente responsável por atos de arrendatário",
+   "teses": [
+    "N20"
+   ]
+  },
+  {
+   "id": "5.1",
+   "modulo": "M5",
+   "titulo": "Critérios de dosimetria fundamentados",
+   "pergunta": "O auto explicita gravidade, antecedentes, situação econômica, cooperação e dano conforme art. 6º da Lei 9.605/98?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Ausente em ~60% dos autos. Taxa de êxito para redução: 72%",
+   "acao": "▸ Se não fundamentado: arguir nulidade da dosimetria e requerer recalculação com cada critério analisado individualmente",
+   "teses": [
+    "N01"
+   ]
+  },
+  {
+   "id": "5.2",
+   "modulo": "M5",
+   "titulo": "Memória de cálculo apresentada",
+   "pergunta": "Há no processo o cálculo discriminado: área × valor/ha × fatores de agravamento/atenuação?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Sem memória de cálculo: impossível verificar se a fórmula foi corretamente aplicada",
+   "acao": "▸ Requerer a memória. Se não fornecida: arguir cerceamento de defesa e solicitar recalculação fundamentada",
+   "teses": [
+    "N24"
+   ]
+  },
+  {
+   "id": "5.3",
+   "modulo": "M5",
+   "titulo": "Triplicação por reincidência",
+   "pergunta": "Se a multa foi triplicada por reincidência (art. 6º, IV, Lei 9.605/98): há comprovação de autuação anterior transitada em julgado?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Reincidência sem prova de condenação anterior: agravamento indevido",
+   "acao": "▸ Requerer as certidões de antecedentes ambientais. Se autuação anterior ainda em fase recursal: não é reincidência",
+   "teses": [
+    "N01"
+   ]
+  },
+  {
+   "id": "5.4",
+   "modulo": "M5",
+   "titulo": "Valor ultrapassa o máximo legal para o tipo",
+   "pergunta": "A multa aplicada excede o teto previsto no Anexo II do Decreto 6.514/08 para aquele tipo infracional específico?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Multa acima do teto legal é absolutamente nula nessa parte",
+   "acao": "▸ Verificar os limites do tipo específico no Anexo II. Calcular se a área × valor/ha não ultrapassa o teto global",
+   "teses": [
+    "N01"
+   ]
+  },
+  {
+   "id": "5.5",
+   "modulo": "M5",
+   "titulo": "Atenuantes não consideradas",
+   "pergunta": "Há circunstâncias atenuantes documentadas: primário, baixa renda, reparação imediata, cooperação — que não foram consideradas?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Atenuantes obrigatoriamente consideradas reduzem a multa até o mínimo",
+   "acao": "▸ Documentar cada atenuante com prova: certidão de primário, balanço contábil, PRAD iniciado, declaração de cooperação",
+   "teses": [
+    "N01"
+   ]
+  },
+  {
+   "id": "5.6",
+   "modulo": "M5",
+   "titulo": "Cumulação de multas pelo mesmo ato material",
+   "pergunta": "O IBAMA aplicou múltiplas multas (por auto separado) pelo mesmo ato físico em datas próximas?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Múltiplas multas pelo mesmo ato = bis in idem, ainda que em autos separados",
+   "acao": "▸ Se há mais de um auto sobre o mesmo evento: arguir que configuram punição em duplicidade pelo mesmo fato material",
+   "teses": [
+    "N01"
+   ]
+  },
+  {
+   "id": "6.1",
+   "modulo": "M6",
+   "titulo": "Prescrição da pretensão punitiva (3 anos)",
+   "pergunta": "Entre a data do fato e a lavratura do auto, transcorreram mais de 3 anos sem interrupção?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Prescrição da pretensão punitiva extingue o processo sem análise de mérito",
+   "acao": "▸ Calcular: data do fato (conforme imagem satélite apontada pelo IBAMA) + 3 anos > data do auto? Se sim: prescrição consumada",
+   "teses": [
+    "N03"
+   ]
+  },
+  {
+   "id": "6.2",
+   "modulo": "M6",
+   "titulo": "Prescrição intercorrente",
+   "pergunta": "paralisação > 3 anos — O processo ficou parado por mais de 3 anos consecutivos em algum momento após a defesa?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — STF Tema 606: prescrição intercorrente por inércia administrativa. Taxa de êxito: 55%",
+   "acao": "▸ Extrair timeline do SEI/SEIA e calcular cada intervalo. Qualquer hiato > 3 anos por inércia do IBAMA = arguir prescrição",
+   "teses": [
+    "N03"
+   ]
+  },
+  {
+   "id": "6.3",
+   "modulo": "M6",
+   "titulo": "Prescrição da execução fiscal (5 anos)",
+   "pergunta": "Se já há CDA: transcorreram mais de 5 anos da data de inscrição sem ajuizamento da execução?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Prescrição executória extingue a CDA e a cobrança sem possibilidade de reabertura",
+   "acao": "▸ Verificar data de inscrição na DA e data de ajuizamento da execução. Se diferença > 5 anos: arguir prescrição na exceção de pré-executividade",
+   "teses": [
+    "N03"
+   ]
+  },
+  {
+   "id": "6.4",
+   "modulo": "M6",
+   "titulo": "Prescrição criminal em perspectiva",
+   "pergunta": "Há processo criminal paralelo? A prescrição em perspectiva (pena mínima cominada) já se realizaria?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Prescrição antecipada: argumento para ANPP ou suspensão condicional do processo",
+   "acao": "▸ Calcular: pena mínima do crime imputado → prazo de prescrição (art. 109, CP) → se já decorrido: argüir extinção da punibilidade",
+   "teses": []
+  },
+  {
+   "id": "6.5",
+   "modulo": "M6",
+   "titulo": "Inscrição em DA dentro do prazo de 5 anos do trânsito",
+   "pergunta": "Se houve trânsito em julgado administrativo: a inscrição na DA ocorreu em até 5 anos?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Inscrição após 5 anos do trânsito: CDA prescrita e inválida",
+   "acao": "▸ Verificar data do trânsito + 5 anos vs. data de inscrição na DA. Se inscrição posterior: arguir prescrição da pretensão executória",
+   "teses": [
+    "N15"
+   ]
+  },
+  {
+   "id": "6.6",
+   "modulo": "M6",
+   "titulo": "Infração anterior a 22/07/2008",
+   "pergunta": "PRA disponível — O fato ocorreu antes de 22/07/2008 e o imóvel aderiu ao PRA? Se sim, há extinção legal (art. 59, §4º, Lei 12.651)?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Se PRA homologado: extinção da responsabilidade é ex lege — obrigatória",
+   "acao": "▸ Verificar data do fato imputado. Se anterior a 22/07/2008 e há PRA em andamento: apresentar no processo e requerer extinção",
+   "teses": []
+  },
+  {
+   "id": "7.1",
+   "modulo": "M7",
+   "titulo": "Inscrição antes do trânsito em julgado",
+   "pergunta": "A CDA foi inscrita durante prazo recursal ainda em curso ou antes de decisão definitiva?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Inscrição prematura = nulidade da CDA. MS cabível com alta chance de liminar (88% de êxito)",
+   "acao": "▸ Comparar data da inscrição na DA com data de encerramento do prazo recursal. Se anterior: MS imediato",
+   "teses": [
+    "N15"
+   ]
+  },
+  {
+   "id": "7.2",
+   "modulo": "M7",
+   "titulo": "Elementos formais da CDA (art. 202, CTN)",
+   "pergunta": "A CDA contém todos os elementos: nome, domicílio, valor, origem, fundamento legal, índice de correção?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Vícios formais insanáveis na CDA = nulidade da execução fiscal",
+   "acao": "▸ Conferir cada elemento do art. 202 do CTN e art. 2º, §5º da LEF. Qualquer ausência: exceção de pré-executividade",
+   "teses": [
+    "N16"
+   ]
+  },
+  {
+   "id": "7.3",
+   "modulo": "M7",
+   "titulo": "Valor da CDA corresponde ao processo administrativo",
+   "pergunta": "O valor inscrito na DA é idêntico ao valor da multa no processo + juros/correção corretamente calculados?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Valor incorreto = excesso de execução arguível",
+   "acao": "▸ Calcular o valor da multa original + SELIC desde a data de vencimento. Se CDA traz valor divergente: arguir excesso de execução",
+   "teses": [
+    "N16"
+   ]
+  },
+  {
+   "id": "7.4",
+   "modulo": "M7",
+   "titulo": "Sujeito passivo correto na CDA",
+   "pergunta": "A CDA está em nome do autuado correto? Não há redirecionamento indevido para sócios ou terceiros?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Redirecionamento de execução para sócio exige prova de dissolução irregular ou dolo (STJ — Tema 962)",
+   "acao": "▸ Se CDA redirecionada a sócio: arguir ilegitimidade passiva — STJ exige prova específica de ato ilícito do sócio",
+   "teses": [
+    "N25"
+   ]
+  },
+  {
+   "id": "7.5",
+   "modulo": "M7",
+   "titulo": "SISBAJUD já acionado",
+   "pergunta": "Houve bloqueio de contas via SISBAJUD antes da citação formal e oportunidade de oferecer bens à penhora?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Bloqueio antes da citação formal viola o devido processo",
+   "acao": "▸ Verificar a ordem dos atos. Se houve bloqueio antes da citação: agravo de instrumento imediato. Oferecer substitutivo de penhora (imóvel/fiança)",
+   "teses": []
+  },
+  {
+   "id": "7.6",
+   "modulo": "M7",
+   "titulo": "Possibilidade de Transação PGFN (Lei 13.988/20)",
+   "pergunta": "O débito é de grande valor e há capacidade de pagamento reduzida documentada? Transação com 65% de desconto?",
+   "risco": "MEDIO",
+   "peso": 4,
+   "nota_risco": "🟡 MÉDIO — Transação é oportunidade de grande redução — verificar elegibilidade",
+   "acao": "▸ Acessar o portal REGULARIZE (PGFN). Débitos acima de R$ 1M com capacidade de pagamento reduzida são elegíveis para transação com até 65% de desconto em multas e juros",
+   "teses": []
+  },
+  {
+   "id": "8.1",
+   "modulo": "M8",
+   "titulo": "Processo criminal paralelo identificado",
+   "pergunta": "Há IP ou ação penal em curso pelos mesmos fatos? Coordenação entre as defesas foi realizada?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Depoimento no processo adm. pode prejudicar defesa criminal. Não fazer afirmações que se tornem provas contra si",
+   "acao": "▸ Coordenar com advogado criminalista. A defesa administrativa deve ser compatível com a tese criminal. Não confessar fatos que ainda são objeto de IP",
+   "teses": []
+  },
+  {
+   "id": "8.2",
+   "modulo": "M8",
+   "titulo": "TAC ou ANPP negociado com o MPF",
+   "pergunta": "Para processos com potencial criminal: foi avaliada a possibilidade de TAC ou ANPP com o MPF?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — ANPP extingue ação penal sem condenação. TAC suspende processo civil e criminal simultaneamente",
+   "acao": "▸ Avaliar elegibilidade para ANPP (pena mínima < 4 anos). Propor ao MPF termos de TAC com obrigações de recuperação ambiental factíveis",
+   "teses": []
+  },
+  {
+   "id": "8.3",
+   "modulo": "M8",
+   "titulo": "PRAD elaborado e em execução",
+   "pergunta": "Há Plano de Recuperação de Área Degradada elaborado por engenheiro e aprovado (ou em aprovação)?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — PRAD demonstra boa-fé, atenua a multa, pode converter a sanção e liberar o embargo",
+   "acao": "▸ Contratar elaboração de PRAD com cronograma de execução. Apresentar ao IBAMA mesmo que ainda não aprovado — demonstra boa-fé",
+   "teses": [
+    "N26"
+   ]
+  },
+  {
+   "id": "8.4",
+   "modulo": "M8",
+   "titulo": "CAR atualizado e PRA aderido (se aplicável)",
+   "pergunta": "O CAR do imóvel está atualizado com análise aprovada? Se há passivo anterior a 2012, o PRA foi aderido?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — PRA com adesão em dia: suspensão das sanções para infrações anteriores a 22/07/2008",
+   "acao": "▸ Verificar situação do CAR no SICAR. Adotar PRA junto ao órgão estadual. Apresentar prova de adesão no processo federal",
+   "teses": [
+    "N26"
+   ]
+  },
+  {
+   "id": "8.5",
+   "modulo": "M8",
+   "titulo": "Laudo técnico independente contratado",
+   "pergunta": "Há laudo de engenheiro ambiental independente com ART cobrindo área, tipologia vegetal e análise das provas do IBAMA?",
+   "risco": "CRITICO",
+   "peso": 10,
+   "nota_risco": "⚡ CRÍTICO — Defesa sem laudo técnico tem 17% de êxito. Com laudo: 55-62%. O laudo é o maior diferencial",
+   "acao": "▸ Contratar imediatamente. Exigir: medição GPS GNSS, inventário florístico, análise das imagens históricas, ART no CREA, metodologia detalhada",
+   "teses": [
+    "N27"
+   ]
+  },
+  {
+   "id": "8.6",
+   "modulo": "M8",
+   "titulo": "Monitoramento do processo no SEI/SEIA",
+   "pergunta": "O advogado acessa o processo no sistema IBAMA regularmente para monitorar movimentação e evitar decisões surpresa?",
+   "risco": "ALTO",
+   "peso": 7,
+   "nota_risco": "🔴 ALTO — Decisões proferidas sem comunicação ao advogado são frequentes — monitoramento mensal é mínimo aceitável",
+   "acao": "▸ Configurar alertas no SEI/SEIA. Acessar mensalmente. Requerer vista dos autos antes de qualquer decisão a cada 6 meses durante o processo",
+   "teses": [
+    "N13"
+   ]
+  }
+ ],
+ "nulidades": [
+  {
+   "id": "N01",
+   "nome": "Ausência de dosimetria fundamentada da multa",
+   "taxa": 72,
+   "origem": "ambas",
+   "fundamento": "Art. 6º Lei 9.605/98 c/c art. 99 Dec. 6.514/08 — STJ REsp 1.251.697/PR"
+  },
+  {
+   "id": "N02",
+   "nome": "Bis in idem — dupla autuação federal e estadual pelo mesmo fato",
+   "taxa": 71,
+   "origem": "ambas",
+   "fundamento": "LC 140/2011 art. 17 — STJ REsp 1.342.071/RJ"
+  },
+  {
+   "id": "N03",
+   "nome": "Prescrição intercorrente na via administrativa",
+   "taxa": 55,
+   "origem": "ambas",
+   "fundamento": "STF RE 669.069/MG Tema 606 — Lei 9.873/1999"
+  },
+  {
+   "id": "N04",
+   "nome": "Incompetência do órgão autuador — competência estadual usurpada",
+   "taxa": 61,
+   "origem": "ambas",
+   "taxa_divergente": 68,
+   "nota_divergencia": "ATLAS-IA registra 68% para a hipótese de licença estadual vigente; ATLAS FORENSE registra 61% para incompetência em geral.",
+   "fundamento": "LC 140/2011 art. 17 §3º"
+  },
+  {
+   "id": "N05",
+   "nome": "Ausência de Relatório de Vistoria ou déficit grave",
+   "taxa": 48,
+   "origem": "ambas",
+   "taxa_divergente": 65,
+   "nota_divergencia": "ATLAS FORENSE registra 48%; ATLAS-IA registra 65%. Divergência relevante — conferir antes de usar em peça.",
+   "fundamento": "Violação ao contraditório técnico — IN IBAMA 10/2012"
+  },
+  {
+   "id": "N06",
+   "nome": "Notificação inválida — endereço errado ou modalidade inadequada",
+   "taxa": 63,
+   "origem": "ambas",
+   "fundamento": "STJ REsp 1.340.553/MG · art. 26 Lei 9.784/1999"
+  },
+  {
+   "id": "N07",
+   "nome": "Ausência de tipicidade — conduta não corresponde ao tipo imputado",
+   "taxa": 55,
+   "origem": "atlas_forense",
+   "fundamento": "Legalidade estrita — Dec. 6.514/2008"
+  },
+  {
+   "id": "N08",
+   "nome": "Ausência de identificação do autuado no auto",
+   "taxa": 58,
+   "origem": "atlas_forense",
+   "fundamento": "Nulidade absoluta por violação ao contraditório"
+  },
+  {
+   "id": "N09",
+   "nome": "Imagens de satélite como única prova, sem confirmação in loco",
+   "taxa": 44,
+   "origem": "ambas",
+   "fundamento": "TRF1 AC 0014232-18.2012 — prova insuficiente"
+  },
+  {
+   "id": "N10",
+   "nome": "Ausência de cadeia de custódia das amostras ou provas apreendidas",
+   "taxa": 41,
+   "origem": "atlas_forense",
+   "fundamento": "Fragilidade probatória — quebra da cadeia de custódia"
+  },
+  {
+   "id": "N11",
+   "nome": "Ausência de Ordem de Serviço autorizando a fiscalização",
+   "taxa": 38,
+   "origem": "ambas",
+   "taxa_divergente": 55,
+   "nota_divergencia": "ATLAS FORENSE registra 38%; ATLAS-IA registra 55%.",
+   "fundamento": "Nulidade procedimental — TRF2 Ap. 0004123-2018"
+  },
+  {
+   "id": "N12",
+   "nome": "Medições com instrumento sem calibração INMETRO vigente",
+   "taxa": 35,
+   "origem": "atlas_forense",
+   "fundamento": "Invalidade da métrica — ausência de rastreabilidade metrológica"
+  },
+  {
+   "id": "N13",
+   "nome": "Julgamento sem intimação do autuado — cerceamento de defesa",
+   "taxa": 47,
+   "origem": "atlas_forense",
+   "fundamento": "Art. 26 Lei 9.784/1999 — contraditório e ampla defesa"
+  },
+  {
+   "id": "N14",
+   "nome": "Exigência inconstitucional de depósito prévio para recorrer",
+   "taxa": 95,
+   "origem": "atlas_forense",
+   "fundamento": "STF Súmula Vinculante 21"
+  },
+  {
+   "id": "N15",
+   "nome": "Inscrição em Dívida Ativa durante o prazo recursal — prematura",
+   "taxa": 88,
+   "origem": "atlas_forense",
+   "fundamento": "Inexigibilidade do crédito antes do trânsito em julgado administrativo"
+  },
+  {
+   "id": "N16",
+   "nome": "Vícios formais insanáveis na CDA",
+   "taxa": 42,
+   "origem": "atlas_forense",
+   "fundamento": "Art. 202 CTN · STJ Súmula 393"
+  },
+  {
+   "id": "N17",
+   "nome": "Responsabilidade de terceiro — arrendatário ou posseiro, não o proprietário",
+   "taxa": 39,
+   "origem": "ambas",
+   "taxa_divergente": 55,
+   "nota_divergencia": "ATLAS FORENSE registra 39% para arrendatário; ATLAS-IA registra 55% para culpa exclusiva de terceiro.",
+   "fundamento": "Excludente de responsabilidade — culpa exclusiva de terceiro"
+  },
+  {
+   "id": "N18",
+   "nome": "Área medida divergente da imputada — erro geográfico",
+   "taxa": 52,
+   "origem": "ambas",
+   "taxa_divergente": 50,
+   "nota_divergencia": "ATLAS FORENSE 52% (erro de medição); ATLAS-IA 50% (área controvertida).",
+   "fundamento": "Necessidade de perícia técnica"
+  },
+  {
+   "id": "N19",
+   "nome": "Vegetação classificada erroneamente — secundária tratada como primária",
+   "taxa": 57,
+   "origem": "atlas_forense",
+   "fundamento": "Erro de classificação — Lei 12.651/2012 e Res. CONAMA aplicáveis"
+  },
+  {
+   "id": "N20",
+   "nome": "Responsabilidade objetiva mal aplicada — ausência de nexo causal",
+   "taxa": 33,
+   "origem": "atlas_forense",
+   "fundamento": "Necessidade de demonstração do nexo causal"
+  },
+  {
+   "id": "N21",
+   "nome": "Coordenadas geográficas ausentes no Relatório de Vistoria",
+   "taxa": 58,
+   "origem": "atlas_ia",
+   "fundamento": "Impossibilidade de verificação técnica do local — datum SIRGAS 2000"
+  },
+  {
+   "id": "N22",
+   "nome": "Metodologia de medição ausente no Relatório de Vistoria",
+   "taxa": 52,
+   "origem": "atlas_ia",
+   "fundamento": "Fragilidade probatória — sem método documentado"
+  },
+  {
+   "id": "N23",
+   "nome": "Fotos sem georreferenciamento ou sem metadados de data/local",
+   "taxa": 48,
+   "origem": "atlas_ia",
+   "fundamento": "Fotos sem valor probante — sem data/local verificável"
+  },
+  {
+   "id": "N24",
+   "nome": "Ausência de memória de cálculo da multa",
+   "taxa": 60,
+   "origem": "atlas_ia",
+   "fundamento": "Multa arbitrária — sem transparência no valor aplicado"
+  },
+  {
+   "id": "N25",
+   "nome": "Ilegitimidade passiva — imóvel não pertence ao autuado",
+   "taxa": 70,
+   "origem": "atlas_ia",
+   "fundamento": "Ilegitimidade passiva — imóvel de terceiro"
+  },
+  {
+   "id": "N26",
+   "nome": "Adesão ao PRA em andamento — extinção da punibilidade",
+   "taxa": 85,
+   "origem": "atlas_ia",
+   "fundamento": "Art. 59-A Lei 12.651/2012"
+  },
+  {
+   "id": "N27",
+   "nome": "Laudo técnico independente contestando a área do IBAMA",
+   "taxa": 52,
+   "origem": "atlas_ia",
+   "fundamento": "Fragilidade da prova oficial — contestação técnica"
+  },
+  {
+   "id": "N28",
+   "nome": "Pequeno produtor — imóvel de até 4 módulos fiscais",
+   "taxa": 45,
+   "origem": "atlas_ia",
+   "fundamento": "Regime diferenciado — Lei 12.651/2012"
+  }
+ ],
+ "teses_sem_item_de_verificacao": [
+  "N14",
+  "N17",
+  "N18",
+  "N28"
+ ]
+}

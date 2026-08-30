@@ -1,10 +1,12 @@
 // SUBSTITUIR src/components/IntakeTab.jsx por este arquivo.
 //
-// Única mudança: dois campos novos na Seção C (Latitude/Longitude), lidos do
-// próprio Relatório de Vistoria (o item de checklist #2 já pergunta se o RV
-// tem essas coordenadas — antes elas não tinham onde ser digitadas). Servem
-// de entrada para a verificação por satélite na aba Auditoria.
-import { useMemo } from 'react'
+// MUDANÇA: a lista de verificações não está mais escrita aqui dentro.
+// Ela é buscada do backend (/api/catalogo) e renderizada agrupada nos 8
+// módulos temáticos — 55 itens, contra os 20 que existiam antes.
+// Cada item mostra o risco, a nota de risco e a ação recomendada que vieram
+// do acervo ATLAS FORENSE.
+import { useMemo, useEffect, useState } from 'react'
+import { API_BASE, authHeaders } from '../config'
 
 const ESTADOS = ['AC', 'AL', 'AM', 'AP', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MG', 'MS', 'MT', 'PA', 'PB', 'PE', 'PI', 'PR', 'RJ', 'RN', 'RO', 'RR', 'RS', 'SC', 'SE', 'SP', 'TO']
 const FASES = ['Defesa Administrativa 1ª Instância', 'Recurso Administrativo 2ª Instância (JARI)', 'Recurso ao GABIN (3ª instância)', 'Trânsito em Julgado Administrativo', 'Dívida Ativa Inscrita (PGFN)', 'Execução Fiscal Ajuizada']
@@ -19,29 +21,6 @@ const INFRACOES = [
     { v: 'solo', l: '🏗️ Parcelamento do Solo — Loteamento irregular' },
 ]
 const BIOMAS = ['Amazônia', 'Cerrado', 'Mata Atlântica', 'Caatinga', 'Pampa', 'Pantanal']
-const CHECKS = [
-    'O Relatório de Vistoria está juntado ao processo?',
-    'O RV contém coordenadas GPS no datum SIRGAS 2000?',
-    'O RV menciona metodologia de medição da área?',
-    'O RV tem fotos com data e georreferenciamento?',
-    'O auto contém fundamentação expressa da dosimetria?',
-    'Há memória de cálculo do valor da multa?',
-    'Existe Ordem de Serviço autorizando a fiscalização?',
-    'O fiscal autuante é servidor com competência?',
-    'A notificação foi feita no endereço correto?',
-    'O autuado foi notificado pessoalmente ou por SEDEX AR?',
-    'Existe autuação estadual pelos mesmos fatos? (Sim = bis in idem)',
-    'O imóvel possuía licença ambiental estadual válida? (Sim = incompetência)',
-    'A supressão foi baseada só em satélite sem vistoria? (Sim = prova insuficiente)',
-    'Há certidão demonstrando que a área não pertence ao autuado? (Sim = ilegitimidade)',
-    'Existe registro de terceiro que praticou o ato? (Sim = culpa de terceiro)',
-    'A área inclui vegetação exótica ou desmatada antes de 2008? (Sim = controvertida)',
-    'Há adesão ao PRA em andamento? (Sim = extinção punibilidade)',
-    'Existe Laudo Técnico contestando a área do IBAMA? (Sim = fragilidade)',
-    'Imóvel rural ≤ 4 módulos fiscais? (Sim = regime diferenciado)',
-    'O processo ficou paralisado por mais de 3 anos? (Sim = prescrição)',
-]
-const CHECK_INVERT = [false, false, false, false, false, false, false, false, false, false, true, true, true, true, true, true, true, true, true, true]
 
 function formatCPFCNPJ(v) {
     const d = v.replace(/\D/g, '')
@@ -53,24 +32,19 @@ function calcPrazos(formData) {
     const { dataFato, dataLavratura, dataNotificacao } = formData
     const results = []
     if (dataNotificacao) {
-        const dn = new Date(dataNotificacao)
-        const prazo = new Date(dn)
+        const prazo = new Date(dataNotificacao)
         prazo.setDate(prazo.getDate() + 20)
-        const hoje = new Date()
-        const diff = Math.ceil((prazo - hoje) / (1000 * 60 * 60 * 24))
+        const diff = Math.ceil((prazo - new Date()) / 86400000)
         results.push({ label: `Prazo de defesa: ${prazo.toLocaleDateString('pt-BR')}`, value: `${diff} dias restantes`, color: diff > 5 ? 'var(--success)' : 'var(--danger)' })
     }
     if (dataFato) {
-        const df = new Date(dataFato)
-        const prescricao = new Date(df)
+        const prescricao = new Date(dataFato)
         prescricao.setFullYear(prescricao.getFullYear() + 3)
-        const hoje = new Date()
-        const consumada = prescricao < hoje
+        const consumada = prescricao < new Date()
         results.push({ label: `Prescrição punitiva: ${prescricao.toLocaleDateString('pt-BR')}`, value: consumada ? '⚡ CONSUMADA' : 'Pendente', color: consumada ? 'var(--success)' : 'var(--warning)' })
     }
     if (dataFato && dataLavratura) {
-        const df = new Date(dataFato), dl = new Date(dataLavratura)
-        const diffMs = dl - df
+        const diffMs = new Date(dataLavratura) - new Date(dataFato)
         const anos = Math.floor(diffMs / (365.25 * 24 * 60 * 60 * 1000))
         const meses = Math.floor((diffMs % (365.25 * 24 * 60 * 60 * 1000)) / (30 * 24 * 60 * 60 * 1000))
         const alerta = anos >= 3
@@ -79,8 +53,71 @@ function calcPrazos(formData) {
     return results
 }
 
-export default function IntakeTab({ formData, updateForm, updateCheck, runAudit, showToast }) {
+const CORES_RISCO = { CRITICO: 'var(--danger)', ALTO: 'var(--warning)', MEDIO: 'var(--gold)' }
+
+function ModuloChecklist({ modulo, itens, checks, updateCheck }) {
+    const [aberto, setAberto] = useState(true)
+    const respondidos = itens.filter(i => checks[i.id]).length
+    const falhas = itens.filter(i => checks[i.id] === 'fail').length
+
+    return (
+        <div className="card gold-left" style={{ marginBottom: 14 }}>
+            <div className="card-title" style={{ cursor: 'pointer', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                 onClick={() => setAberto(a => !a)}>
+                <span>{aberto ? '▾' : '▸'} {modulo.titulo}</span>
+                <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: 11, color: 'var(--text2)' }}>
+                    {respondidos}/{itens.length} verificados
+                    {falhas > 0 && <span style={{ color: 'var(--danger)', marginLeft: 8 }}>· {falhas} falha(s)</span>}
+                </span>
+            </div>
+
+            {aberto && itens.map(item => {
+                const resp = checks[item.id]
+                return (
+                    <div key={item.id} className="audit-item" style={{ borderLeft: `3px solid ${resp === 'fail' ? 'var(--danger)' : resp === 'ok' ? 'var(--success)' : 'transparent'}`, paddingLeft: 10, marginBottom: 10 }}>
+                        <div style={{ flex: 1 }}>
+                            <div style={{ fontSize: 13, color: 'var(--text)' }}>
+                                <strong style={{ fontFamily: "'JetBrains Mono', monospace", color: CORES_RISCO[item.risco] }}>{item.id}</strong>
+                                {' — '}{item.titulo}
+                                <span className={`badge badge-${item.risco === 'CRITICO' ? 'danger' : item.risco === 'ALTO' ? 'warning' : 'gold'}`} style={{ marginLeft: 8 }}>
+                                    {item.risco} · peso {item.peso}
+                                </span>
+                            </div>
+                            <div style={{ fontSize: 12.5, color: 'var(--text2)', marginTop: 3 }}>{item.pergunta}</div>
+
+                            <div className="audit-btns" style={{ marginTop: 6 }}>
+                                <button className={`audit-btn ok ${resp === 'ok' ? 'active' : ''}`} onClick={() => updateCheck(item.id, 'ok')}>✓ CONFORME</button>
+                                <button className={`audit-btn fail ${resp === 'fail' ? 'active' : ''}`} onClick={() => updateCheck(item.id, 'fail')}>✗ FALHA</button>
+                                <button className={`audit-btn ${resp === 'na' ? 'active' : ''}`} onClick={() => updateCheck(item.id, 'na')}>— N/A</button>
+                            </div>
+
+                            {resp === 'fail' && (
+                                <div className="alert-box danger" style={{ marginTop: 8 }}>
+                                    {item.nota_risco && <div className="alert-title" style={{ fontSize: 12 }}>{item.nota_risco}</div>}
+                                    {item.acao && <div className="alert-content" style={{ fontSize: 12 }}>{item.acao}</div>}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )
+            })}
+        </div>
+    )
+}
+
+export default function IntakeTab({ formData, updateForm, updateCheck, runAudit, auditando, showToast }) {
     const prazos = useMemo(() => calcPrazos(formData), [formData.dataFato, formData.dataLavratura, formData.dataNotificacao])
+    const [catalogo, setCatalogo] = useState(null)
+    const [erroCat, setErroCat] = useState(null)
+
+    useEffect(() => {
+        fetch(`${API_BASE}/api/catalogo`, { headers: authHeaders() })
+            .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json() })
+            .then(setCatalogo)
+            .catch(e => setErroCat(e.message))
+    }, [])
+
+    const totalRespondidos = catalogo ? catalogo.itens.filter(i => formData.checks[i.id]).length : 0
 
     return (
         <div>
@@ -210,7 +247,6 @@ export default function IntakeTab({ formData, updateForm, updateCheck, runAudit,
                         </div>
                     )}
                 </div>
-                {/* ATLAS-GEO: novo — coordenadas do RV, usadas na verificação por satélite (aba Auditoria) */}
                 <div className="form-row">
                     <div className="form-group">
                         <label className="form-label">Latitude do RV (graus decimais)</label>
@@ -221,7 +257,7 @@ export default function IntakeTab({ formData, updateForm, updateCheck, runAudit,
                         <input className="form-input" type="number" step="0.0001" placeholder="ex: -55.6572" value={formData.longitude} onChange={e => updateForm('longitude', e.target.value)} />
                     </div>
                 </div>
-                <div className="section-sub" style={{ marginTop: -8 }}>Copie do Relatório de Vistoria (datum SIRGAS 2000). Com esses dois campos preenchidos, a aba Auditoria confere automaticamente se há alerta oficial de desmatamento do INPE nesse ponto.</div>
+                <div className="section-sub" style={{ marginTop: -8 }}>Copie do Relatório de Vistoria (datum SIRGAS 2000). Com esses campos preenchidos, a aba Auditoria confere automaticamente se há alerta oficial de desmatamento do INPE nesse ponto.</div>
             </div>
 
             {/* SEÇÃO D */}
@@ -251,12 +287,6 @@ export default function IntakeTab({ formData, updateForm, updateCheck, runAudit,
                         </select>
                     </div>
                 </div>
-                {(formData.dosimetriaFundamentada === 'Não' || formData.dosimetriaFundamentada === 'Parcialmente') && (
-                    <div className="alert-box danger">
-                        <div className="alert-title">⚡ NULIDADE GRAVE</div>
-                        <div className="alert-content">Ausência de dosimetria fundamentada — art. 6º Lei 9.605/98 e REsp 1.251.697/PR — taxa de êxito histórica: 72%</div>
-                    </div>
-                )}
             </div>
 
             {/* SEÇÃO E */}
@@ -288,28 +318,30 @@ export default function IntakeTab({ formData, updateForm, updateCheck, runAudit,
                 )}
             </div>
 
-            {/* SEÇÃO F — CHECKS */}
-            <div className="card gold-left">
-                <div className="card-title">🔍 Verificações de Nulidade</div>
-                <div className="section-sub">Cada item afeta diretamente o diagnóstico e as peças geradas</div>
-                {CHECKS.map((label, i) => (
-                    <div key={i} className="audit-item">
-                        <div style={{ flex: 1 }}>
-                            <div style={{ fontSize: 13, color: 'var(--text2)' }}><strong style={{ color: 'var(--text)' }}>{i + 1}.</strong> {label}</div>
-                            <div className="audit-btns">
-                                <button className={`audit-btn ${CHECK_INVERT[i] ? 'fail' : 'ok'} ${formData.checks[i] === (CHECK_INVERT[i] ? 'fail' : 'ok') ? 'active' : ''}`}
-                                    onClick={() => updateCheck(i, CHECK_INVERT[i] ? 'fail' : 'ok')}>
-                                    {CHECK_INVERT[i] ? '✗ SIM' : '✓ SIM'}
-                                </button>
-                                <button className={`audit-btn ${CHECK_INVERT[i] ? 'ok' : 'fail'} ${formData.checks[i] === (CHECK_INVERT[i] ? 'ok' : 'fail') ? 'active' : ''}`}
-                                    onClick={() => updateCheck(i, CHECK_INVERT[i] ? 'ok' : 'fail')}>
-                                    {CHECK_INVERT[i] ? '✓ NÃO' : '✗ NÃO'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                ))}
+            {/* SEÇÃO F — CHECKLIST VINDO DO CATÁLOGO */}
+            <div className="section-title" style={{ marginTop: 28 }}>🔍 Verificações de Nulidade</div>
+            <div className="section-sub">
+                {catalogo
+                    ? `${catalogo.itens.length} itens em ${catalogo.modulos.length} módulos — ${totalRespondidos} respondidos. ${catalogo.regra_de_peso}`
+                    : 'Carregando catálogo do servidor...'}
             </div>
+
+            {erroCat && (
+                <div className="alert-box danger">
+                    <div className="alert-title">⚠ CATÁLOGO INDISPONÍVEL</div>
+                    <div className="alert-content">Não foi possível carregar as verificações do servidor ({erroCat}). Confira se o backend atlas-geo está no ar e se VITE_ATLAS_API_URL está correto.</div>
+                </div>
+            )}
+
+            {catalogo && catalogo.modulos.map(m => (
+                <ModuloChecklist
+                    key={m.id}
+                    modulo={m}
+                    itens={catalogo.itens.filter(i => i.modulo === m.id)}
+                    checks={formData.checks}
+                    updateCheck={updateCheck}
+                />
+            ))}
 
             {/* OBSERVAÇÕES */}
             <div className="card gold-left">
@@ -317,9 +349,13 @@ export default function IntakeTab({ formData, updateForm, updateCheck, runAudit,
                 <textarea className="form-textarea" placeholder="Informações não capturadas acima..." value={formData.observacoes} onChange={e => updateForm('observacoes', e.target.value)} />
             </div>
 
-            <button className="btn btn-gold btn-lg" style={{ width: '100%', justifyContent: 'center', marginTop: 16 }} onClick={runAudit}>
-                ⚡ EXECUTAR AUDITORIA COMPLETA
+            <button className="btn btn-gold btn-lg" style={{ width: '100%', justifyContent: 'center', marginTop: 16 }}
+                    onClick={runAudit} disabled={auditando || !catalogo || totalRespondidos === 0}>
+                {auditando ? '⏳ Auditando...' : `⚡ EXECUTAR AUDITORIA (${totalRespondidos} itens respondidos)`}
             </button>
+            {catalogo && totalRespondidos === 0 && (
+                <div className="section-sub" style={{ textAlign: 'center', marginTop: 8 }}>Responda ao menos uma verificação para executar a auditoria.</div>
+            )}
         </div>
     )
 }
