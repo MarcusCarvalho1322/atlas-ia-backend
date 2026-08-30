@@ -1,6 +1,4 @@
-__pycache__/
-*.pyc
-.env
-atlas_geo.db
-venv/
-.venv/
+
+dados_ibama/
+*.csv
+*.zip

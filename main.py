@@ -18,6 +18,7 @@ geo_service.py e ai_service.py para a proveniência de cada peça.
 """
 import os
 from datetime import date
+from pathlib import Path
 from typing import Optional, Any
 
 from fastapi import FastAPI, HTTPException, Header, Depends
@@ -30,6 +31,7 @@ from models import Caso
 import geo_service
 import ai_service
 import catalogo
+import prospeccao
 
 Base.metadata.create_all(bind=engine)
 
@@ -68,6 +70,69 @@ def root():
 @app.get("/health")
 def health():
     return {"ok": True}
+
+
+# ───────────────────────── Prospecção ─────────────────────────
+# Identificação, seleção e mineração de casos na base pública do IBAMA.
+# Devolve apenas constatação aritmética; a leitura jurídica não passa por aqui.
+
+BASE_IBAMA = os.getenv("BASE_IBAMA_DIR", "./dados_ibama")
+_cache_casos: dict[int, list] = {}
+
+
+def _casos(ano: int):
+    if ano not in _cache_casos:
+        arq = Path(BASE_IBAMA) / f"auto_infracao_{ano}.csv"
+        if not arq.exists():
+            raise HTTPException(404, f"Base de {ano} ainda não baixada. Chame POST /api/prospeccao/atualizar.")
+        _cache_casos[ano] = prospeccao.ingerir(arq)
+    return _cache_casos[ano]
+
+
+@app.post("/api/prospeccao/atualizar")
+def atualizar_base(ano: Optional[int] = None, authorization: Optional[str] = Header(None)):
+    """Rebaixa o pacote do IBAMA (republicado diariamente) para o ano indicado."""
+    _checar_auth(authorization)
+    ano = ano or date.today().year
+    try:
+        arquivos = prospeccao.baixar_base(BASE_IBAMA, [ano])
+    except Exception as e:
+        raise HTTPException(502, f"Falha ao baixar a base do IBAMA: {e}")
+    if not arquivos:
+        raise HTTPException(404, f"O pacote do IBAMA não contém dados de {ano}.")
+    _cache_casos.pop(ano, None)
+    casos = _casos(ano)
+    return {"ok": True, "ano": ano, "casos_vivos": len(casos), "fonte": prospeccao.FONTE}
+
+
+@app.get("/api/prospeccao/resumo")
+def prospeccao_resumo(ano: Optional[int] = None, authorization: Optional[str] = Header(None)):
+    _checar_auth(authorization)
+    return prospeccao.resumo(_casos(ano or date.today().year))
+
+
+@app.get("/api/prospeccao/ranking")
+def prospeccao_ranking(
+    ano: Optional[int] = None, uf: Optional[str] = None,
+    valor_minimo: Optional[float] = None, sinal: Optional[str] = None,
+    topo: int = 50, revelar_documento: bool = False,
+    authorization: Optional[str] = Header(None),
+):
+    """
+    Ranking de casos por relevância. O nome do autuado só é devolvido com
+    `revelar_documento=true` — use apenas onde houver base legal registrada
+    para o tratamento com finalidade de prospecção comercial.
+    """
+    _checar_auth(authorization)
+    sel = prospeccao.ranquear(_casos(ano or date.today().year), uf=uf,
+                              valor_minimo=valor_minimo, sinal=sinal, topo=min(topo, 500))
+    return {
+        "total": len(sel),
+        "fonte": prospeccao.FONTE, "fonte_url": prospeccao.FONTE_URL,
+        "casos": [c.to_dict(revelar_documento=revelar_documento) for c in sel],
+        "aviso": ("Sinais aritméticos apurados sobre o registro público. Não constituem "
+                  "qualificação jurídica nem avaliação de mérito do auto de infração."),
+    }
 
 
 # ───────────────────────── Catálogo de auditoria ─────────────────────────
