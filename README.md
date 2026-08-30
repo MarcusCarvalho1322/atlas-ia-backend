@@ -119,6 +119,41 @@ Embutido no serviço, sem cron externo nem biblioteca extra: defina
 `ROTINA_DIARIA_HORA` (0–23, UTC). Falha de execução é registrada e não derruba
 o serviço; `GET /api/prospeccao/ultima-execucao` mostra o resultado do último ciclo.
 
+### Contato do autuado — a linha que o sistema não cruza
+
+A base do IBAMA identifica o autuado e o município, mas **não traz contato**:
+não há endereço, telefone ou e-mail em nenhuma das 84 colunas. O contato vem de
+outra fonte, e aqui empresa e pessoa física seguem caminhos diferentes por
+decisão de arquitetura, não por limitação técnica.
+
+| | Pessoa jurídica | Pessoa física |
+|---|---|---|
+| Autos vivos em 2026 | 3.056 (29,9%) | 7.169 (70,1%) |
+| Valor | R$ 1,29 bi (40,5%) | R$ 1,89 bi (59,5%) |
+| Ticket médio | **R$ 421.092** | R$ 263.779 |
+| Contato | Receita Federal, cadastro público | **Sem fonte legítima** |
+
+**Empresa:** `GET /api/prospeccao/{num_auto}/contato` consulta o Cadastro
+Nacional da Pessoa Jurídica e devolve razão social, endereço completo,
+telefone, situação cadastral e atividade. É registro empresarial público,
+publicado para consulta. Cache de 30 dias.
+
+**Pessoa física:** não existe fonte pública e legítima de telefone ou e-mail a
+partir de CPF. Quem vende isso opera sobre bases vazadas ou raspadas — e usar
+esse tipo de origem num negócio cujo produto é rigor forense é risco
+desproporcional ao ganho: além da exposição sob a LGPD, é exatamente o que a
+parte contrária usaria para desqualificar o trabalho. **O sistema não consulta
+esse tipo de base.** Em vez disso devolve o caminho de aproximação por canal
+local, apoiado em `GET /api/prospeccao/territorio`.
+
+**Por que o território resolve:** os casos de pessoa física estão espalhados por
+1.241 municípios, mas **50 deles concentram 71,3% do valor** — e os 12 primeiros,
+38%. Novo Progresso/PA sozinho responde por R$ 134 milhões. Presença nesses
+pontos alcança a maior parte da carteira sem depender de contato individual.
+
+**CNPJ é guardado por extenso; CPF não.** Um é identificador empresarial
+público, o outro é dado pessoal. A distinção está no modelo de dados.
+
 ### Dados pessoais
 
 O IBAMA publica nome e CPF/CNPJ, mas o uso para prospecção comercial é

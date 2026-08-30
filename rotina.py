@@ -34,7 +34,7 @@ def _aplicar(p: Prospecto, c: prospeccao.Caso) -> list[str]:
     novos = {
         "processo": c.processo, "valor": c.valor, "uf": c.uf, "municipio": c.municipio,
         "bioma": c.bioma, "tipo_infracao": c.tipo_infracao, "tipo_pessoa": c.tipo_pessoa,
-        "documento_mascarado": c.documento_mascarado, "nome": c.nome,
+        "documento_mascarado": c.documento_mascarado, "cnpj": c.cnpj, "nome": c.nome,
         "dt_fato": c.dt_fato.isoformat() if c.dt_fato else None,
         "dt_auto": c.dt_auto.isoformat() if c.dt_auto else None,
         "dt_ciencia": c.dt_ciencia.isoformat() if c.dt_ciencia else None,

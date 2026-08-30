@@ -59,6 +59,10 @@ class Prospecto(Base):
     tipo_infracao = Column(String, nullable=True)
     tipo_pessoa = Column(String, nullable=True)
     documento_mascarado = Column(String, nullable=True)
+    # CNPJ é identificador empresarial público — a Receita publica o cadastro
+    # inteiro. Guardado por extenso para permitir a consulta de contato.
+    # CPF NÃO é guardado por extenso: para pessoa física fica só o mascarado.
+    cnpj = Column(String, index=True, nullable=True)
     nome = Column(String, nullable=True)
 
     dt_fato = Column(String, nullable=True)
@@ -86,3 +90,21 @@ class Prospecto(Base):
         if not revelar_documento:
             d.pop("nome", None)
         return d
+
+
+class CacheConsulta(Base):
+    """
+    Cache de consultas a fontes externas.
+
+    Mesmo princípio da `scrapingCache` do SafraCheck: guarda a resposta com a
+    data em que foi buscada, para não repetir consulta desnecessária nem
+    depender da fonte estar no ar a cada abertura de tela.
+    """
+    __tablename__ = "cache_consultas"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    origem = Column(String, index=True, nullable=False)   # ex.: "receita_cnpj"
+    chave = Column(String, index=True, nullable=False)    # ex.: o CNPJ
+    resultado = Column(JSON, nullable=True)
+    buscado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+    expira_em = Column(DateTime, nullable=True)

@@ -64,6 +64,14 @@ def _coord(s: str | None) -> float | None:
         return None
 
 
+def _cnpj_se_pj(tipo: str | None, doc: str | None) -> str | None:
+    """Devolve o CNPJ apenas quando o autuado é pessoa jurídica."""
+    if (tipo or "").strip().upper() != "PJ":
+        return None
+    d = "".join(c for c in (doc or "") if c.isdigit())
+    return d if len(d) == 14 else None
+
+
 def _mascarar(doc: str | None) -> str | None:
     d = "".join(ch for ch in (doc or "") if ch.isdigit())
     return ("***" + d[-4:]) if len(d) >= 4 else None
@@ -88,6 +96,7 @@ class Caso:
     tipo_infracao: str | None
     tipo_pessoa: str | None
     documento_mascarado: str | None
+    cnpj: str | None
     nome: str | None
     dt_fato: date | None
     dt_auto: date | None
@@ -179,6 +188,8 @@ def ingerir(caminho: str | Path, hoje: date | None = None, limite: int | None = 
                 tipo_infracao=(row.get("TIPO_INFRACAO") or "").strip() or None,
                 tipo_pessoa=(row.get("TP_PESSOA_INFRATOR") or "").strip() or None,
                 documento_mascarado=_mascarar(row.get("CPF_CNPJ_INFRATOR")),
+                # Só para PJ. CPF de pessoa física não é guardado por extenso.
+                cnpj=_cnpj_se_pj(row.get("TP_PESSOA_INFRATOR"), row.get("CPF_CNPJ_INFRATOR")),
                 nome=(row.get("NOME_INFRATOR") or "").strip() or None,
                 dt_fato=_data(row.get("DT_FATO_INFRACIONAL")),
                 dt_auto=_data(row.get("DAT_HORA_AUTO_INFRACAO")),

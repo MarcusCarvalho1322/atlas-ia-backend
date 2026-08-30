@@ -33,6 +33,7 @@ import ai_service
 import catalogo
 import prospeccao
 import rotina
+import enriquecimento
 
 Base.metadata.create_all(bind=engine)
 
@@ -150,6 +151,34 @@ def prospeccao_ranking(
         "aviso": ("Sinais aritméticos apurados sobre o registro público. Não constituem "
                   "qualificação jurídica nem avaliação de mérito do auto de infração."),
     }
+
+
+# ───────────────────────── Contato do caso ─────────────────────────
+
+@app.get("/api/prospeccao/{num_auto}/contato")
+def contato_do_caso(num_auto: str, authorization: Optional[str] = Header(None),
+                    db: Session = Depends(get_db)):
+    """
+    Resolve o contato do autuado — quando existe fonte legítima para isso.
+
+    Empresa: consulta o cadastro público da Receita Federal e devolve endereço,
+    telefone e situação cadastral. Pessoa física: não há fonte pública de
+    contato a partir de CPF, e o sistema não recorre a base de origem não
+    verificável — devolve o caminho de aproximação por canal local.
+    """
+    _checar_auth(authorization)
+    p = db.query(Prospecto).filter(Prospecto.num_auto == num_auto).first()
+    if not p:
+        raise HTTPException(404, "Auto não encontrado na carteira.")
+    return {"num_auto": p.num_auto, "contato": enriquecimento.contato_do_caso(db, p)}
+
+
+@app.get("/api/prospeccao/territorio")
+def territorio(tipo_pessoa: str = "PF", topo: int = 50,
+               authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+    """Onde os casos se concentram — a rota de aproximação para pessoa física."""
+    _checar_auth(authorization)
+    return enriquecimento.territorio(db, tipo_pessoa=tipo_pessoa, topo=min(topo, 200))
 
 
 # ───────────────────────── Rotina diária de mineração ─────────────────────────

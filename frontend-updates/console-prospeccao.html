@@ -118,6 +118,7 @@ const SECOES = [
   ['decurso_superior_a_3_anos','Decurso > 3 anos'],
   ['inversao_temporal','Inversão temporal'],
 ];
+const ABA_TERRITORIO = 'territorio';
 
 function cfg(){ return { api:(localStorage.atlasApi||'').replace(/\/$/,''), tok:localStorage.atlasTok||'' }; }
 function salvarCfg(){
@@ -169,6 +170,53 @@ async function mover(numAuto, status){
   }catch(e){ erro('Não foi possível mover o caso: '+e.message); }
 }
 
+let TERRITORIO = null;
+
+async function verTerritorio(){
+  ABA = ABA_TERRITORIO;
+  try{ TERRITORIO = await api('/api/prospeccao/territorio?tipo_pessoa=PF&topo=50'); }
+  catch(e){ erro('Não foi possível carregar o território: '+e.message); }
+  render();
+}
+
+function renderTerritorio(){
+  const t = TERRITORIO;
+  $('#contagem').textContent = t ? `— ${t.municipios_com_casos} municípios` : '';
+  if(!t){ $('#linhas').innerHTML='<tr><td colspan="8" class="vazio">Carregando…</td></tr>'; return; }
+  $('#linhas').innerHTML = t.concentracao.map(l => `<tr>
+      <td class="mono">${l.posicao}</td>
+      <td>${l.municipio}</td>
+      <td class="num">${brl(l.valor)}</td>
+      <td class="num">${l.urgentes?`<span class="pill p-urg">${l.urgentes}</span>`:'—'}</td>
+      <td>${l.autos} auto(s)</td>
+      <td class="num mono">${l.acumulado_pct}%</td>
+      <td colspan="2"></td>
+    </tr>`).join('')
+    + `<tr><td colspan="8" style="padding:16px;color:var(--ink-dim);font-size:13px">${t.leitura}</td></tr>`;
+}
+
+async function verContato(numAuto){
+  const alvo = document.getElementById('ct-'+numAuto);
+  alvo.innerHTML = '<div class="sinal">consultando…</div>';
+  try{
+    const {contato:c} = await api('/api/prospeccao/'+encodeURIComponent(numAuto)+'/contato');
+    if(c.disponivel){
+      alvo.innerHTML = `<div style="margin-top:8px;padding:10px;background:var(--surface-2);border-radius:6px;font-size:12.5px;line-height:1.7">
+        <b>${c.razao_social||''}</b> <span class="pill p-info">${c.situacao_cadastral||''}</span><br>
+        ${[c.endereco,c.bairro,c.municipio+'/'+c.uf,c.cep].filter(Boolean).join(' · ')}<br>
+        ${(c.telefones||[]).length?'☎ '+c.telefones.join(' · '):''} ${c.email?' · ✉ '+c.email:''}<br>
+        <span style="color:var(--ink-faint);font-size:11px">${c.atividade_principal||''} — ${c.fonte}</span>
+      </div>`;
+    } else {
+      alvo.innerHTML = `<div style="margin-top:8px;padding:10px;background:var(--surface-2);border-radius:6px;font-size:12.5px;line-height:1.7">
+        <b>Sem contato por fonte pública.</b><br>
+        <span style="color:var(--ink-dim)">${c.motivo||c.erro||''}</span><br>
+        ${c.caminho_recomendado?`<span style="color:var(--amber)">▸ ${c.caminho_recomendado}</span>`:''}
+      </div>`;
+    }
+  }catch(e){ alvo.innerHTML = `<div class="sinal" style="color:var(--urgent)">falhou: ${e.message}</div>`; }
+}
+
 function render(){
   if(!BOLETIM){ $('#linhas').innerHTML = '<tr><td colspan="8" class="vazio">Informe o endereço do backend e carregue o boletim.</td></tr>'; return; }
   const b = BOLETIM;
@@ -181,7 +229,10 @@ function render(){
     <div class="kpi"><div class="lbl">Inversão temporal</div><div class="val">${b.inversao_temporal.total}</div><div class="sub">${brl(b.inversao_temporal.valor)}</div></div>`;
 
   $('#tabs').innerHTML = SECOES.map(([k,rot]) =>
-    `<div class="tab ${ABA===k?'on':''}" onclick="ABA='${k}';render()">${rot} <b>${b[k].total}</b></div>`).join('');
+    `<div class="tab ${ABA===k?'on':''}" onclick="ABA='${k}';render()">${rot} <b>${b[k].total}</b></div>`).join('')
+    + `<div class="tab ${ABA===ABA_TERRITORIO?'on':''}" onclick="verTerritorio()">Território · pessoa física</div>`;
+
+  if(ABA===ABA_TERRITORIO){ renderTerritorio(); return; }
 
   const uf = $('#fUf').value.trim().toUpperCase();
   const vmin = parseFloat($('#fVal').value) || 0;
@@ -209,7 +260,9 @@ function render(){
         <button onclick="mover('${c.num_auto}','selecionado')">Selecionar</button>
         <button onclick="mover('${c.num_auto}','contatado')">Contatado</button>
         <button onclick="mover('${c.num_auto}','descartado')">Descartar</button>
-      </div></td>
+        <button onclick="verContato('${c.num_auto}')">Contato</button>
+      </div>
+      <div id="ct-${c.num_auto}"></div></td>
     </tr>`;
   }).join('') : '<tr><td colspan="8" class="vazio">Nenhum caso nesta seção com os filtros atuais.</td></tr>';
 
