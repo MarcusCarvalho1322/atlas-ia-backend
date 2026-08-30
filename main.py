@@ -26,12 +26,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from db import Base, engine, get_db
-from models import Caso
+from db import Base, engine, get_db, SessionLocal
+from models import Caso, Prospecto
 import geo_service
 import ai_service
 import catalogo
 import prospeccao
+import rotina
 
 Base.metadata.create_all(bind=engine)
 
@@ -70,6 +71,22 @@ def root():
 @app.get("/health")
 def health():
     return {"ok": True}
+
+
+@app.on_event("startup")
+async def _iniciar_agendador():
+    import asyncio
+    asyncio.create_task(rotina.agendador(SessionLocal, BASE_IBAMA))
+
+
+@app.get("/api/prospeccao/ultima-execucao")
+def ultima_execucao(authorization: Optional[str] = Header(None)):
+    """Quando a rotina rodou pela última vez e com que resultado."""
+    _checar_auth(authorization)
+    return {
+        "agendada_para_hora_utc": os.getenv("ROTINA_DIARIA_HORA") or None,
+        **rotina.ultima_execucao,
+    }
 
 
 # ───────────────────────── Prospecção ─────────────────────────
@@ -133,6 +150,64 @@ def prospeccao_ranking(
         "aviso": ("Sinais aritméticos apurados sobre o registro público. Não constituem "
                   "qualificação jurídica nem avaliação de mérito do auto de infração."),
     }
+
+
+# ───────────────────────── Rotina diária de mineração ─────────────────────────
+
+@app.post("/api/prospeccao/rotina-diaria")
+def executar_rotina(
+    ano: Optional[int] = None, baixar: bool = True,
+    authorization: Optional[str] = Header(None), db: Session = Depends(get_db),
+):
+    """
+    Baixa a base do dia, concilia com a carteira e devolve o boletim.
+    Ponto único de entrada para o agendamento (cron do Railway ou tarefa externa).
+    """
+    _checar_auth(authorization)
+    try:
+        sinc = rotina.sincronizar(db, ano=ano, baixar=baixar, pasta=BASE_IBAMA)
+    except FileNotFoundError as e:
+        raise HTTPException(404, str(e))
+    except Exception as e:
+        raise HTTPException(502, f"Falha na rotina de mineração: {e}")
+    _cache_casos.clear()
+    return {"sincronizacao": sinc, "boletim": rotina.boletim(db)}
+
+
+@app.get("/api/prospeccao/boletim")
+def obter_boletim(
+    limiar_urgencia: int = 5, topo: int = 20, revelar_documento: bool = False,
+    authorization: Optional[str] = Header(None), db: Session = Depends(get_db),
+):
+    """O boletim do dia, sem rebaixar a base."""
+    _checar_auth(authorization)
+    return rotina.boletim(db, limiar_urgencia=limiar_urgencia, topo=topo,
+                          revelar_documento=revelar_documento)
+
+
+class StatusProspecto(BaseModel):
+    status: str          # novo|selecionado|contatado|descartado|cliente
+    notas: Optional[str] = None
+
+
+@app.patch("/api/prospeccao/{num_auto}")
+def atualizar_prospecto(
+    num_auto: str, req: StatusProspecto,
+    authorization: Optional[str] = Header(None), db: Session = Depends(get_db),
+):
+    """Move o caso no funil. A rotina diária nunca sobrescreve esta decisão."""
+    _checar_auth(authorization)
+    validos = {"novo", "selecionado", "contatado", "descartado", "cliente"}
+    if req.status not in validos:
+        raise HTTPException(400, f"status inválido; use um de {sorted(validos)}")
+    p = db.query(Prospecto).filter(Prospecto.num_auto == num_auto).first()
+    if not p:
+        raise HTTPException(404, "Auto não encontrado na carteira.")
+    p.status = req.status
+    if req.notas is not None:
+        p.notas = req.notas
+    db.commit()
+    return p.to_dict()
 
 
 # ───────────────────────── Catálogo de auditoria ─────────────────────────

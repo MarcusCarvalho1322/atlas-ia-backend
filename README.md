@@ -78,6 +78,55 @@ teses distintas produz número inflado e sem significado, mesma regra que o ARGU
 TarifaCheck adota para alíquotas. É estimativa para dimensionar a causa, não
 previsão de resultado.
 
+## Prospecção — identificação e mineração de casos
+
+Fonte: **IBAMA · Dados Abertos — Fiscalização/Auto de Infração**
+(`dadosabertos.ibama.gov.br`), 84 colunas, cobertura nacional desde 1980,
+**republicado diariamente**. Não exige chave nem cadastro.
+
+Medido sobre 2026 (execução de 30/08/2026, após deduplicação):
+
+| | |
+|---|---|
+| Autos vivos (cancelados e excluídos fora) | **10.305** |
+| Valor em multas | **R$ 3,18 bilhões** |
+| Com coordenada — alimenta a verificação INPE | 99,5% |
+| Prazo de defesa vencendo em até 5 dias | **143** (R$ 37,6 mi) |
+| Mais de 3 anos entre fato e lavratura | **676** (R$ 253,0 mi) |
+| Auto lavrado antes da data do fato | **253** (R$ 35,6 mi) |
+
+### Como a rotina se comporta
+
+**Idempotente.** Rodar duas vezes na mesma base não cria duplicata nem marca
+nada como novo. Testado.
+
+**Nunca sobrescreve decisão humana.** O status comercial de cada caso
+(novo/selecionado/contatado/descartado/cliente) é preservado entre execuções.
+Casos marcados como descartado ou cliente saem do boletim sozinhos.
+
+**Detecta mudança na fonte.** Se o IBAMA alterar valor, data de ciência, data
+do fato ou número do processo, a rotina reporta o campo alterado e reconcilia.
+
+**Deduplicação.** O dataset traz mais de uma linha para o mesmo auto — versões
+sucessivas do registro, e às vezes a linha cancelada ao lado da viva
+(justificativa "Duplicação"). Nem `NUM_AUTO_INFRACAO` nem `SEQ_AUTO_INFRACAO`
+são únicos. A ingestão mantém a versão mais recente de cada auto por
+`DT_ULT_ALTERACAO`.
+
+### Agendamento
+
+Embutido no serviço, sem cron externo nem biblioteca extra: defina
+`ROTINA_DIARIA_HORA` (0–23, UTC). Falha de execução é registrada e não derruba
+o serviço; `GET /api/prospeccao/ultima-execucao` mostra o resultado do último ciclo.
+
+### Dados pessoais
+
+O IBAMA publica nome e CPF/CNPJ, mas o uso para prospecção comercial é
+finalidade distinta da publicação original. O documento sai **mascarado por
+padrão** (`***2668`) e o nome só é devolvido com `revelar_documento=true` —
+para que a exposição seja sempre uma escolha registrada, não o comportamento
+padrão do sistema.
+
 ## Endpoints
 
 - `GET /health` — health check
@@ -87,6 +136,13 @@ previsão de resultado.
 - `POST /api/peca` — peça jurídica por IA (`{pecaId, formData, auditResult}`)
 - `GET|POST /api/casos`, `GET|DELETE /api/casos/{id}` — casos
 - `POST /api/geo/verificar` — `{lat, lon, bioma, dataFato?}` → alertas oficiais de desmatamento
+- `POST /api/laudo-tecnico` — camada do consumidor: só constatação verificável
+- `POST /api/anexo-juridico` — camada do advogado: teses, fundamentos, taxas
+- `POST /api/prospeccao/rotina-diaria` — baixa a base do dia, concilia e devolve o boletim
+- `GET /api/prospeccao/boletim` — o boletim, sem rebaixar
+- `GET /api/prospeccao/ranking` — ranking filtrável por UF, valor e sinal
+- `PATCH /api/prospeccao/{num_auto}` — move o caso no funil comercial
+- `GET /api/prospeccao/ultima-execucao` — quando a rotina rodou e com que resultado
 
 Todos aceitam `Authorization: Bearer <ATLAS_API_TOKEN>` quando essa variável está definida.
 

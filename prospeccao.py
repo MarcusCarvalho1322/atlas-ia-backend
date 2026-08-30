@@ -97,9 +97,12 @@ class Caso:
     sinais: list[Sinal] = field(default_factory=list)
     prioridade: float = 0.0
     dias_para_defesa: int | None = None
+    # Usado só para desempatar linhas repetidas do mesmo auto; não vai para a API.
+    _alterado_em: str = ""
 
     def to_dict(self, revelar_documento=False):
         d = asdict(self)
+        d.pop("_alterado_em", None)
         d["dt_fato"] = self.dt_fato.isoformat() if self.dt_fato else None
         d["dt_auto"] = self.dt_auto.isoformat() if self.dt_auto else None
         d["dt_ciencia"] = self.dt_ciencia.isoformat() if self.dt_ciencia else None
@@ -156,7 +159,7 @@ def _prioridade(c: Caso) -> float:
 def ingerir(caminho: str | Path, hoje: date | None = None, limite: int | None = None) -> list[Caso]:
     """Lê um CSV anual do dataset e devolve os casos vivos, já avaliados."""
     hoje = hoje or date.today()
-    casos: list[Caso] = []
+    por_auto: dict[str, Caso] = {}
     with open(caminho, encoding="utf-8", errors="replace", newline="") as fh:
         for row in csv.DictReader(fh, delimiter=";"):
             if (row.get("SIT_CANCELADO") or "").strip().upper() not in ("", "N", "NAO", "NÃO"):
@@ -182,13 +185,23 @@ def ingerir(caminho: str | Path, hoje: date | None = None, limite: int | None = 
                 dt_ciencia=_data(row.get("DAT_CIENCIA_AUTUACAO")),
                 lat=_coord(row.get("NUM_LATITUDE_AUTO")),
                 lon=_coord(row.get("NUM_LONGITUDE_AUTO")),
+                _alterado_em=((row.get("DT_ULT_ALTERACAO") or row.get("DT_LANCAMENTO") or "").strip()),
             )
+            if not c.num_auto:
+                continue
             _avaliar(c, hoje)
             c.prioridade = _prioridade(c)
-            casos.append(c)
-            if limite and len(casos) >= limite:
+
+            # O dataset traz mais de uma linha para o mesmo auto — versões
+            # sucessivas do registro, e às vezes a linha cancelada ao lado da
+            # viva. Um auto é um prospecto: fica a versão mais recente.
+            anterior = por_auto.get(c.num_auto)
+            if anterior is None or c._alterado_em > anterior._alterado_em:
+                por_auto[c.num_auto] = c
+            if limite and len(por_auto) >= limite:
                 break
-    casos.sort(key=lambda x: -x.prioridade)
+
+    casos = sorted(por_auto.values(), key=lambda x: -x.prioridade)
     return casos
 
 

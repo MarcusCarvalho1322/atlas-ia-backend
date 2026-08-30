@@ -8,7 +8,7 @@ nome ou de formato.
 """
 import uuid
 from datetime import datetime, timezone
-from sqlalchemy import Column, String, DateTime, JSON, Integer
+from sqlalchemy import Column, String, DateTime, JSON, Integer, Float
 from db import Base
 
 
@@ -37,3 +37,52 @@ class Caso(Base):
             "savedAt": self.saved_at.isoformat() if self.saved_at else None,
             "updatedAt": self.updated_at.isoformat() if self.updated_at else None,
         }
+
+
+class Prospecto(Base):
+    """
+    Caso identificado na base pública do IBAMA e acompanhado pela prospecção.
+
+    Existe para responder duas perguntas que a base bruta não responde:
+    o que apareceu HOJE que não existia ontem, e em que pé está a abordagem
+    de cada caso. Sem isso a rotina diária vira só uma releitura da mesma
+    lista, e casos com prazo correndo passam batido.
+    """
+    __tablename__ = "prospectos"
+
+    num_auto = Column(String, primary_key=True)
+    processo = Column(String, nullable=True)
+    valor = Column(Float, nullable=True)
+    uf = Column(String, index=True, nullable=True)
+    municipio = Column(String, nullable=True)
+    bioma = Column(String, nullable=True)
+    tipo_infracao = Column(String, nullable=True)
+    tipo_pessoa = Column(String, nullable=True)
+    documento_mascarado = Column(String, nullable=True)
+    nome = Column(String, nullable=True)
+
+    dt_fato = Column(String, nullable=True)
+    dt_auto = Column(String, nullable=True)
+    dt_ciencia = Column(String, nullable=True)
+    lat = Column(Float, nullable=True)
+    lon = Column(Float, nullable=True)
+
+    sinais = Column(JSON, nullable=True)
+    prioridade = Column(Float, index=True, default=0.0)
+    dias_para_defesa = Column(Integer, nullable=True)
+
+    # Acompanhamento comercial
+    status = Column(String, index=True, default="novo")   # novo|selecionado|contatado|descartado|cliente
+    notas = Column(String, nullable=True)
+
+    visto_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))      # primeira aparição
+    atualizado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc),
+                            onupdate=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self, revelar_documento=False):
+        d = {c.name: getattr(self, c.name) for c in self.__table__.columns}
+        for k in ("visto_em", "atualizado_em"):
+            d[k] = d[k].isoformat() if d[k] else None
+        if not revelar_documento:
+            d.pop("nome", None)
+        return d
