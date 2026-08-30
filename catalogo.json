@@ -1,16 +1,16 @@
 {
- "versao": "1.0",
+ "versao": "1.1",
  "origem": [
   "ATLAS-IA (app React)",
   "ATLAS FORENSE v2.1 (repositórios GitHub)"
  ],
  "regra_de_peso": "Peso derivado do risco: CRÍTICO=10, ALTO=7, MÉDIO=4. Regra pública e uniforme — nenhum peso foi atribuído item a item.",
- "pontuacao_maxima": 448,
+ "pontuacao_maxima": 486,
  "modulos": [
   {
    "id": "M1",
    "titulo": "Elementos Formais do Auto de Infração",
-   "qtd": 12
+   "qtd": 13
   },
   {
    "id": "M2",
@@ -25,7 +25,7 @@
   {
    "id": "M4",
    "titulo": "Análise das Provas e Laudos do IBAMA",
-   "qtd": 8
+   "qtd": 9
   },
   {
    "id": "M5",
@@ -45,7 +45,12 @@
   {
    "id": "M8",
    "titulo": "Checklist de Estratégia e Coordenação Defensiva",
-   "qtd": 6
+   "qtd": 7
+  },
+  {
+   "id": "M9",
+   "titulo": "Admissibilidade Recursal e Barreiras de Acesso",
+   "qtd": 2
   }
  ],
  "itens": [
@@ -201,6 +206,19 @@
    "teses": [
     "N11"
    ]
+  },
+  {
+   "id": "1.13",
+   "modulo": "M1",
+   "titulo": "Vínculo do autuado com o imóvel está demonstrado",
+   "pergunta": "O processo demonstra a que título o autuado responde pelo imóvel — proprietário, arrendatário, posseiro ou comodatário? Há contrato ou matrícula que comprove?",
+   "risco": "ALTO",
+   "nota_risco": "🔴 ALTO — Autuação do proprietário por ato de arrendatário (ou vice-versa) sem demonstrar o vínculo e o poder de controle sobre a área.",
+   "acao": "▸ Se NÃO demonstrado: juntar contrato de arrendamento/comodato vigente na data do fato e arguir ilegitimidade passiva ou responsabilidade de terceiro.",
+   "teses": [
+    "N17"
+   ],
+   "peso": 7
   },
   {
    "id": "2.1",
@@ -446,6 +464,19 @@
    "teses": [
     "N20"
    ]
+  },
+  {
+   "id": "4.9",
+   "modulo": "M4",
+   "titulo": "Área medida confere com a área imputada no auto",
+   "pergunta": "A área apurada em campo ou por imagem coincide com a área que consta do auto e serviu de base para o cálculo da multa?",
+   "risco": "ALTO",
+   "nota_risco": "🔴 ALTO — Divergência entre a área medida e a imputada contamina a dosimetria inteira, porque a multa é calculada por hectare.",
+   "acao": "▸ Se NÃO: requerer perícia ou apresentar laudo independente com memorial descritivo georreferenciado, e pleitear a redução proporcional da multa.",
+   "teses": [
+    "N18"
+   ],
+   "peso": 7
   },
   {
    "id": "5.1",
@@ -746,6 +777,45 @@
    "teses": [
     "N13"
    ]
+  },
+  {
+   "id": "8.7",
+   "modulo": "M8",
+   "titulo": "Imóvel rural de até 4 módulos fiscais",
+   "pergunta": "O imóvel se enquadra como pequena propriedade ou posse rural familiar, de até 4 módulos fiscais?",
+   "risco": "MEDIO",
+   "nota_risco": "🟡 MÉDIO — Enquadramento aciona regime diferenciado de regularização e sanção.",
+   "acao": "▸ Se SIM: invocar o regime diferenciado da Lei 12.651/2012 e requerer a conversão da multa em serviços de recuperação ambiental.",
+   "teses": [
+    "N28"
+   ],
+   "peso": 4
+  },
+  {
+   "id": "9.1",
+   "modulo": "M9",
+   "titulo": "Exigência de depósito prévio, caução ou arrolamento para recorrer",
+   "pergunta": "Para conhecer ou processar o recurso administrativo, o órgão exigiu depósito prévio, caução, arrolamento de bens ou comprovação de pagamento da multa?",
+   "risco": "CRITICO",
+   "nota_risco": "⚡ CRÍTICO — Exigência inconstitucional. STF Súmula Vinculante 21: é inconstitucional a exigência de depósito ou arrolamento prévios para admissibilidade de recurso administrativo.",
+   "acao": "▸ Se SIM: arguir de imediato a inconstitucionalidade com base na SV 21 e requerer o processamento do recurso independentemente de depósito. Cabe reclamação ao STF em caso de descumprimento da súmula vinculante.",
+   "teses": [
+    "N14"
+   ],
+   "peso": 10
+  },
+  {
+   "id": "9.2",
+   "modulo": "M9",
+   "titulo": "Recurso não conhecido por barreira econômica",
+   "pergunta": "O recurso deixou de ser conhecido, foi devolvido ou teve seguimento negado por falta de pagamento, garantia ou recolhimento de taxa?",
+   "risco": "CRITICO",
+   "nota_risco": "⚡ CRÍTICO — Não conhecimento por barreira econômica esvazia o duplo grau administrativo e o contraditório.",
+   "acao": "▸ Se SIM: requerer a anulação da decisão de não conhecimento e o regular processamento do recurso — SV 21 c/c art. 2º da Lei 9.784/1999.",
+   "teses": [
+    "N14"
+   ],
+   "peso": 10
   }
  ],
  "nulidades": [
@@ -956,10 +1026,5 @@
    "fundamento": "Regime diferenciado — Lei 12.651/2012"
   }
  ],
- "teses_sem_item_de_verificacao": [
-  "N14",
-  "N17",
-  "N18",
-  "N28"
- ]
+ "teses_sem_item_de_verificacao": []
 }

@@ -81,8 +81,9 @@ def obter_catalogo(authorization: Optional[str] = Header(None)):
 
 
 class AuditoriaRequest(BaseModel):
-    respostas: dict[str, str]          # {"1.1": "ok" | "fail" | "na", ...}
-    casoId: Optional[str] = None       # se informado, o resultado é gravado no caso
+    respostas: dict[str, str]              # {"1.1": "ok" | "fail" | "na", ...}
+    valorMulta: Optional[str | float] = None  # para calcular a exposição financeira
+    casoId: Optional[str] = None           # se informado, o resultado é gravado no caso
 
 
 @app.post("/api/auditoria")
@@ -92,7 +93,7 @@ def executar_auditoria(
     db: Session = Depends(get_db),
 ):
     _checar_auth(authorization)
-    resultado = catalogo.executar_auditoria(req.respostas)
+    resultado = catalogo.executar_auditoria(req.respostas, req.valorMulta)
     if req.casoId:
         caso = db.query(Caso).filter(Caso.id == req.casoId).first()
         if caso:

@@ -156,6 +156,35 @@ export default function AuditoriaTab({ auditResult, formData, casoId, setActiveT
                 </div>
             </div>
 
+            {/* EXPOSIÇÃO FINANCEIRA — o número que o cliente entende */}
+            {auditResult.exposicao_financeira && (
+                <div className="card" style={{ marginTop: 24, borderColor: 'var(--gold)' }}>
+                    <div className="card-title" style={{ color: 'var(--gold)' }}>💰 Exposição Financeira da Causa</div>
+                    <div style={{ display: 'flex', gap: 32, flexWrap: 'wrap', alignItems: 'flex-end', marginTop: 8 }}>
+                        <div>
+                            <div style={{ fontSize: 11, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace" }}>Multa aplicada</div>
+                            <div style={{ fontSize: 22, fontWeight: 700 }}>
+                                R$ {auditResult.exposicao_financeira.valor_multa.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </div>
+                        </div>
+                        <div>
+                            <div style={{ fontSize: 11, color: 'var(--text2)', textTransform: 'uppercase', letterSpacing: 1, fontFamily: "'JetBrains Mono', monospace" }}>Valor potencialmente reversível</div>
+                            <div style={{ fontSize: 30, fontWeight: 900, color: 'var(--gold)' }}>
+                                R$ {auditResult.exposicao_financeira.valor_em_risco_reversivel.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </div>
+                        </div>
+                    </div>
+                    <div style={{ fontSize: 12.5, color: 'var(--text2)', marginTop: 12 }}>
+                        Base: <strong style={{ color: 'var(--text)' }}>{auditResult.exposicao_financeira.tese_de_maior_exito.nome}</strong>
+                        {' — '}{auditResult.exposicao_financeira.tese_de_maior_exito.taxa}% de êxito registrado.
+                    </div>
+                    <div style={{ fontSize: 11, color: 'var(--text2)', marginTop: 8, lineHeight: 1.6 }}>
+                        {auditResult.exposicao_financeira.criterio}<br />
+                        <strong>{auditResult.exposicao_financeira.aviso}</strong>
+                    </div>
+                </div>
+            )}
+
             {/* SCORE POR MÓDULO */}
             {por_modulo && (
                 <div className="mt-24">

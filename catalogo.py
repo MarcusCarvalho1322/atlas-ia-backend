@@ -43,9 +43,42 @@ def _indices():
     )
 
 
-def executar_auditoria(respostas: dict[str, str]) -> dict:
+def _valor_em_risco(multa, teses: list[dict]) -> dict | None:
+    """
+    Traduz a auditoria em dinheiro — que é a linguagem em que o cliente decide.
+
+    REGRA DELIBERADA: usa a MAIOR taxa entre as teses acionáveis, nunca a soma
+    nem o produto. Somar probabilidades de teses diferentes produziria número
+    inflado e sem significado — é a mesma regra que o ARGUS TarifaCheck já
+    adota para alíquotas ("não somar automaticamente").
+
+    Não é previsão de resultado: é a exposição financeira associada à tese de
+    maior êxito registrado no acervo, para dimensionar a causa.
+    """
+    try:
+        valor = float(str(multa).replace(",", ".")) if multa not in (None, "") else 0.0
+    except (TypeError, ValueError):
+        return None
+    if valor <= 0 or not teses:
+        return None
+
+    melhor = max(teses, key=lambda t: t["taxa"])
+    return {
+        "valor_multa": round(valor, 2),
+        "tese_de_maior_exito": {"id": melhor["id"], "nome": melhor["nome"], "taxa": melhor["taxa"]},
+        "valor_em_risco_reversivel": round(valor * melhor["taxa"] / 100, 2),
+        "criterio": ("Valor da multa multiplicado pela taxa de êxito registrada da tese mais forte. "
+                     "As taxas NÃO são somadas entre teses — a soma de probabilidades de teses "
+                     "distintas não tem significado estatístico."),
+        "aviso": ("Estimativa indicativa para dimensionar a causa. Não é previsão de resultado nem "
+                  "promessa de êxito, e não substitui a análise do advogado responsável."),
+    }
+
+
+def executar_auditoria(respostas: dict[str, str], valor_multa=None) -> dict:
     """
     respostas: {"1.1": "ok" | "fail" | "na", ...}
+    valor_multa: valor original da multa, para calcular a exposição financeira.
 
     Devolve o diagnóstico completo. Duas leituras de score, ambas explícitas:
 
@@ -133,5 +166,6 @@ def executar_auditoria(respostas: dict[str, str]) -> dict:
             for i in sorted(falhas, key=lambda x: (-x["peso"], x["id"]))
         ],
         "teses_acionaveis": teses,
+        "exposicao_financeira": _valor_em_risco(valor_multa, teses),
         "metodologia": cat["regra_de_peso"],
     }

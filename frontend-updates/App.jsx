@@ -13,7 +13,7 @@
 // Este arquivo não guarda mais nenhuma regra jurídica.
 //
 // Também mudou: formData.checks deixa de ser um array de 20 posições e passa
-// a ser um objeto { "1.1": "ok" | "fail" | "na", ... } com os 55 itens.
+// a ser um objeto { "1.1": "ok" | "fail" | "na", ... } com os 60 itens.
 import { useState, useCallback } from 'react'
 import './index.css'
 import { API_BASE, authHeaders } from './config'
@@ -75,7 +75,7 @@ export default function App() {
       const res = await fetch(`${API_BASE}/api/auditoria`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...authHeaders() },
-        body: JSON.stringify({ respostas: formData.checks, casoId }),
+        body: JSON.stringify({ respostas: formData.checks, valorMulta: formData.valorMulta, casoId }),
       })
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const r = await res.json()
@@ -89,7 +89,7 @@ export default function App() {
       showToast(`Não foi possível executar a auditoria: ${e.message}`, 'danger')
     }
     setAuditando(false)
-  }, [formData.checks, casoId, showToast])
+  }, [formData.checks, formData.valorMulta, casoId, showToast])
 
   const salvarCaso = useCallback(async () => {
     try {
