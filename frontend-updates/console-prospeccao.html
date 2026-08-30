@@ -82,7 +82,7 @@ tr:hover td{background:var(--surface-2)}
 <header>
   <div class="brand">ATLAS<span>·</span>PROSPECÇÃO<small>Console interno de mineração</small></div>
   <div class="cfg">
-    <input id="api" placeholder="https://seu-backend.up.railway.app" size="34">
+    <input id="api" value="https://atlas-geo.onrender.com" placeholder="https://atlas-geo.onrender.com" size="34">
     <input id="tok" placeholder="token" type="password" size="14">
     <button onclick="salvarCfg()">Salvar</button>
     <button class="primary" id="btnRodar" onclick="rodarRotina()">Rodar mineração</button>
@@ -273,9 +273,9 @@ function render(){
     O nome do autuado não é exibido neste console. O documento aparece mascarado.`;
 }
 
-$('#api').value = localStorage.atlasApi || '';
+$('#api').value = localStorage.atlasApi || 'https://atlas-geo.onrender.com';
 $('#tok').value = localStorage.atlasTok || '';
-if(localStorage.atlasApi) carregar(); else render();
+if(localStorage.atlasApi && localStorage.atlasTok) carregar(); else render();
 </script>
 </body>
 </html>
