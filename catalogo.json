@@ -10,47 +10,56 @@
   {
    "id": "M1",
    "titulo": "Elementos Formais do Auto de Infração",
-   "qtd": 13
+   "qtd": 13,
+   "titulo_tecnico": "Elementos Formais do Auto de Infração"
   },
   {
    "id": "M2",
    "titulo": "Análise de Competência Fiscalizatória",
-   "qtd": 6
+   "qtd": 6,
+   "titulo_tecnico": "Identificação do Órgão Autuador e Sobreposição de Atuação"
   },
   {
    "id": "M3",
    "titulo": "Verificação da Notificação",
-   "qtd": 5
+   "qtd": 5,
+   "titulo_tecnico": "Verificação da Notificação e da Ciência do Interessado"
   },
   {
    "id": "M4",
    "titulo": "Análise das Provas e Laudos do IBAMA",
-   "qtd": 9
+   "qtd": 9,
+   "titulo_tecnico": "Análise das Provas, Laudos e Metadados"
   },
   {
    "id": "M5",
    "titulo": "Auditoria do Valor e Cálculo da Multa",
-   "qtd": 6
+   "qtd": 6,
+   "titulo_tecnico": "Auditoria Aritmética do Valor da Multa"
   },
   {
    "id": "M6",
    "titulo": "Análise de Prescrição Punitiva e Executória",
-   "qtd": 6
+   "qtd": 6,
+   "titulo_tecnico": "Marcos Temporais e Decurso de Prazos"
   },
   {
    "id": "M7",
    "titulo": "Verificação da CDA e Processo Judicial",
-   "qtd": 6
+   "qtd": 6,
+   "titulo_tecnico": "Conferência da Certidão de Dívida Ativa e da Fase Judicial"
   },
   {
    "id": "M8",
    "titulo": "Checklist de Estratégia e Coordenação Defensiva",
-   "qtd": 7
+   "qtd": 7,
+   "titulo_tecnico": "Instrução Complementar do Caso"
   },
   {
    "id": "M9",
    "titulo": "Admissibilidade Recursal e Barreiras de Acesso",
-   "qtd": 2
+   "qtd": 2,
+   "titulo_tecnico": "Condições Impostas para Apresentação de Recurso"
   }
  ],
  "itens": [
@@ -65,7 +74,24 @@
    "acao": "▸ Se incorretos: juntar documentos de identificação corretos e arguir nulidade por erro de sujeito passivo",
    "teses": [
     "N08"
-   ]
+   ],
+   "tecnico": {
+    "id": "1.1",
+    "modulo": "M1",
+    "titulo": "Identificação completa do autuado",
+    "verificacao": "Nome/Razão Social, CPF/CNPJ e endereço presentes e corretos no auto?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Verificar e documentar: Nome/Razão Social, CPF/CNPJ e endereço presentes e corretos no auto."
+   },
+   "juridico": {
+    "id": "1.1",
+    "qualificacao": "⚡ CRÍTICO — Ausência: nulidade absoluta por violação ao contraditório",
+    "encaminhamento_juridico": "Se incorretos: juntar documentos de identificação corretos e arguir nulidade por erro de sujeito passivo.",
+    "teses": [
+     "N08"
+    ]
+   }
   },
   {
    "id": "1.2",
@@ -78,7 +104,24 @@
    "acao": "▸ Se vaga: arguir nulidade por ausência de tipicidade precisa (TRF1 — AC 0035210-74.2009)",
    "teses": [
     "N07"
-   ]
+   ],
+   "tecnico": {
+    "id": "1.2",
+    "modulo": "M1",
+    "titulo": "Descrição objetiva e clara dos fatos",
+    "verificacao": "A conduta está descrita com especificidade suficiente para exercício do contraditório?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Verificar e documentar: A conduta está descrita com especificidade suficiente para exercício do contraditório."
+   },
+   "juridico": {
+    "id": "1.2",
+    "qualificacao": "⚡ CRÍTICO — Descrição vaga = violação da legalidade estrita",
+    "encaminhamento_juridico": "Se vaga: arguir nulidade por ausência de tipicidade precisa (TRF1 — AC 0035210-74.2009).",
+    "teses": [
+     "N07"
+    ]
+   }
   },
   {
    "id": "1.3",
@@ -91,7 +134,24 @@
    "acao": "▸ Comparar a conduta descrita com os elementos do tipo legal citado. Qualquer divergência = arguir atipicidade",
    "teses": [
     "N07"
-   ]
+   ],
+   "tecnico": {
+    "id": "1.3",
+    "modulo": "M1",
+    "titulo": "Dispositivo legal infringido",
+    "verificacao": "O dispositivo normativo citado no auto corresponde exatamente à conduta que o próprio auto descreve?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Comparar a conduta descrita com os elementos do tipo legal citado."
+   },
+   "juridico": {
+    "id": "1.3",
+    "qualificacao": "⚡ CRÍTICO — Tipificação errada = conduta atípica = nulidade",
+    "encaminhamento_juridico": "Qualquer divergência = arguir atipicidade.",
+    "teses": [
+     "N07"
+    ]
+   }
   },
   {
    "id": "1.4",
@@ -105,7 +165,25 @@
    "teses": [
     "N01",
     "N24"
-   ]
+   ],
+   "tecnico": {
+    "id": "1.4",
+    "modulo": "M1",
+    "titulo": "Penalidade aplicada e valor da multa",
+    "verificacao": "Estão expressos no auto com cálculo discriminado (valor base × área/quantidade)?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Verificar e documentar: Estão expressos no auto com cálculo discriminado (valor base × área/quantidade)."
+   },
+   "juridico": {
+    "id": "1.4",
+    "qualificacao": "⚡ CRÍTICO — Sem memória de cálculo: multa arbitrária",
+    "encaminhamento_juridico": "Requerer a memória de cálculo via requerimento administrativo. Sem ela, a dosimetria é impugnável.",
+    "teses": [
+     "N01",
+     "N24"
+    ]
+   }
   },
   {
    "id": "1.5",
@@ -116,7 +194,22 @@
    "peso": 7,
    "nota_risco": "🔴 ALTO — Auto lavrado antes da vistoria = inversão temporal = nulidade (TRF2)",
    "acao": "▸ Comparar data do auto com data do relatório de vistoria. Se relatório é posterior ao auto: nulidade por alteração da ordem cronológica dos atos",
-   "teses": []
+   "teses": [],
+   "tecnico": {
+    "id": "1.5",
+    "modulo": "M1",
+    "titulo": "Local, data e hora da lavratura",
+    "verificacao": "Presentes no auto? A data é a mesma ou posterior à data da vistoria?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Comparar data do auto com data do relatório de vistoria."
+   },
+   "juridico": {
+    "id": "1.5",
+    "qualificacao": "🔴 ALTO — Auto lavrado antes da vistoria = inversão temporal = nulidade (TRF2)",
+    "encaminhamento_juridico": "Se relatório é posterior ao auto: nulidade por alteração da ordem cronológica dos atos.",
+    "teses": []
+   }
   },
   {
    "id": "1.6",
@@ -129,7 +222,24 @@
    "acao": "▸ Pesquisar no portal do IBAMA a matrícula e a lotação do fiscal. Verificar se sua credencial abrangia o tipo de infração autuada",
    "teses": [
     "N04"
-   ]
+   ],
+   "tecnico": {
+    "id": "1.6",
+    "modulo": "M1",
+    "titulo": "Identificação e assinatura do agente autuador",
+    "verificacao": "Nome, matrícula IBAMA e assinatura legíveis? A matrícula é de fiscal com credencial válida para o tipo de infração?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Pesquisar no portal do IBAMA a matrícula e a lotação do fiscal. Verificar se sua credencial abrangia o tipo de infração autuada."
+   },
+   "juridico": {
+    "id": "1.6",
+    "qualificacao": "⚡ CRÍTICO — Fiscal sem credencial ou com matrícula de outra área: incompetência funcional",
+    "encaminhamento_juridico": null,
+    "teses": [
+     "N04"
+    ]
+   }
   },
   {
    "id": "1.7",
@@ -140,7 +250,22 @@
    "peso": 7,
    "nota_risco": "🔴 ALTO — Recusa sem testemunhas qualificadas: vício de forma",
    "acao": "▸ Verificar quem são as \"testemunhas\" — se forem o próprio fiscal e pessoa sem vínculo com o IBAMA, há vício",
-   "teses": []
+   "teses": [],
+   "tecnico": {
+    "id": "1.7",
+    "modulo": "M1",
+    "titulo": "Assinatura do autuado ou nota de recusa com 2 testemunhas",
+    "verificacao": "Se autuado presente: assinou ou há nota de recusa com identificação de 2 servidores como testemunhas?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Verificar e documentar: Se autuado presente: assinou ou há nota de recusa com identificação de 2 servidores como testemunhas."
+   },
+   "juridico": {
+    "id": "1.7",
+    "qualificacao": "🔴 ALTO — Recusa sem testemunhas qualificadas: vício de forma",
+    "encaminhamento_juridico": "Verificar quem são as \"testemunhas\" — se forem o próprio fiscal e pessoa sem vínculo com o IBAMA, há vício.",
+    "teses": []
+   }
   },
   {
    "id": "1.8",
@@ -153,7 +278,24 @@
    "acao": "▸ Se ausente ou com prazo diferente dos 20 dias legais: arguir que o prazo só começa da ciência inequívoca do autuado",
    "teses": [
     "N13"
-   ]
+   ],
+   "tecnico": {
+    "id": "1.8",
+    "modulo": "M1",
+    "titulo": "Prazo para recolhimento ou defesa",
+    "verificacao": "Está indicado no auto o prazo de 20 dias para apresentação de defesa?",
+    "gravidade": "ACESSORIO",
+    "peso": 4,
+    "providencia_tecnica": "Verificar e documentar: Está indicado no auto o prazo de 20 dias para apresentação de defesa."
+   },
+   "juridico": {
+    "id": "1.8",
+    "qualificacao": "🟡 MÉDIO — Ausência pode gerar confusão sobre início do prazo",
+    "encaminhamento_juridico": "Se ausente ou com prazo diferente dos 20 dias legais: arguir que o prazo só começa da ciência inequívoca do autuado.",
+    "teses": [
+     "N13"
+    ]
+   }
   },
   {
    "id": "1.9",
@@ -166,7 +308,24 @@
    "acao": "▸ Se ausente: requerer juntada e arguir nulidade por impossibilidade de contraditório técnico sem conhecimento da metodologia",
    "teses": [
     "N05"
-   ]
+   ],
+   "tecnico": {
+    "id": "1.9",
+    "modulo": "M1",
+    "titulo": "Relatório de Vistoria anexo",
+    "verificacao": "Há relatório de vistoria juntado ao auto com metodologia, equipamentos e condições climáticas?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Verificar e documentar: Há relatório de vistoria juntado ao auto com metodologia, equipamentos e condições climáticas."
+   },
+   "juridico": {
+    "id": "1.9",
+    "qualificacao": "⚡ CRÍTICO — Ausente em ~40% dos processos analisados. Vício frequente e arguível",
+    "encaminhamento_juridico": "Se ausente: requerer juntada e arguir nulidade por impossibilidade de contraditório técnico sem conhecimento da metodologia.",
+    "teses": [
+     "N05"
+    ]
+   }
   },
   {
    "id": "1.10",
@@ -179,7 +338,24 @@
    "acao": "▸ Se ausente: argumentar que a área exata da infração não foi determinada — impossibilidade de verificação técnica",
    "teses": [
     "N21"
-   ]
+   ],
+   "tecnico": {
+    "id": "1.10",
+    "modulo": "M1",
+    "titulo": "Coordenadas GPS do local",
+    "verificacao": "O auto e/ou relatório indicam as coordenadas geográficas precisas da infração (datum SIRGAS 2000)?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Se ausente: argumentar que a área exata da infração não foi determinada — impossibilidade de verificação técnica."
+   },
+   "juridico": {
+    "id": "1.10",
+    "qualificacao": "🔴 ALTO — Sem coordenadas: impossível localizar precisamente e comparar com imagens de satélite",
+    "encaminhamento_juridico": null,
+    "teses": [
+     "N21"
+    ]
+   }
   },
   {
    "id": "1.11",
@@ -192,7 +368,24 @@
    "acao": "▸ Requerer os certificados via requerimento administrativo. Se não entregues em 10 dias, arguir cerceamento de defesa",
    "teses": [
     "N12"
-   ]
+   ],
+   "tecnico": {
+    "id": "1.11",
+    "modulo": "M1",
+    "titulo": "Certificado de calibração dos equipamentos",
+    "verificacao": "GPS e instrumentos de medição usados têm certificado INMETRO vigente na data da vistoria?",
+    "gravidade": "ACESSORIO",
+    "peso": 4,
+    "providencia_tecnica": "Verificar e documentar: GPS e instrumentos de medição usados têm certificado INMETRO vigente na data da vistoria."
+   },
+   "juridico": {
+    "id": "1.11",
+    "qualificacao": "🟡 MÉDIO — Equipamento sem calibração: laudo de medição tecnicamente impugnável",
+    "encaminhamento_juridico": "Requerer os certificados via requerimento administrativo. Se não entregues em 10 dias, arguir cerceamento de defesa.",
+    "teses": [
+     "N12"
+    ]
+   }
   },
   {
    "id": "1.12",
@@ -205,7 +398,24 @@
    "acao": "▸ Requerer juntada da OS. Se inexistente: arguir nulidade por falta de delegação legal para o ato de fiscalização",
    "teses": [
     "N11"
-   ]
+   ],
+   "tecnico": {
+    "id": "1.12",
+    "modulo": "M1",
+    "titulo": "Ordem de Serviço autorizando a fiscalização",
+    "verificacao": "Há no processo a OS ou despacho da chefia autorizando a diligência específica?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Verificar e documentar: Há no processo a OS ou despacho da chefia autorizando a diligência específica."
+   },
+   "juridico": {
+    "id": "1.12",
+    "qualificacao": "🔴 ALTO — Sem OS: fiscal agiu sem delegação formal. TRF1 anulou autos nesta situação",
+    "encaminhamento_juridico": "Requerer juntada da OS Se inexistente: arguir nulidade por falta de delegação legal para o ato de fiscalização.",
+    "teses": [
+     "N11"
+    ]
+   }
   },
   {
    "id": "1.13",
@@ -218,7 +428,24 @@
    "teses": [
     "N17"
    ],
-   "peso": 7
+   "peso": 7,
+   "tecnico": {
+    "id": "1.13",
+    "modulo": "M1",
+    "titulo": "Vínculo do autuado com o imóvel está demonstrado",
+    "verificacao": "O processo demonstra a que título o autuado responde pelo imóvel — proprietário, arrendatário, posseiro ou comodatário? Há contrato ou matrícula que comprove?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Verificar e documentar: O processo demonstra a que título o autuado responde pelo imóvel — proprietário, arrendatário, posseiro ou comodatário? Há contrato ou matrícula que comprove."
+   },
+   "juridico": {
+    "id": "1.13",
+    "qualificacao": "🔴 ALTO — Autuação do proprietário por ato de arrendatário (ou vice-versa) sem demonstrar o vínculo e o poder de controle sobre a área.",
+    "encaminhamento_juridico": "Se NÃO demonstrado: juntar contrato de arrendamento/comodato vigente na data do fato e arguir ilegitimidade passiva ou responsabilidade de terceiro.",
+    "teses": [
+     "N17"
+    ]
+   }
   },
   {
    "id": "2.1",
@@ -231,7 +458,24 @@
    "acao": "▸ Se sim: copiar a licença estadual e arguir incompetência do IBAMA. Taxa de êxito: 71%",
    "teses": [
     "N04"
-   ]
+   ],
+   "tecnico": {
+    "id": "2.1",
+    "modulo": "M2",
+    "titulo": "Imóvel sob licença estadual anterior",
+    "verificacao": "O imóvel ou atividade possuía licença ambiental estadual vigente antes da autuação federal?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Verificar e documentar: O imóvel ou atividade possuía licença ambiental estadual vigente antes da autuação federal."
+   },
+   "juridico": {
+    "id": "2.1",
+    "qualificacao": "⚡ CRÍTICO — Se sim: IBAMA não pode autuar pelo mesmo fato (LC 140, art. 17) — bis in idem",
+    "encaminhamento_juridico": "Se sim: copiar a licença estadual e arguir incompetência do IBAMA. Taxa de êxito: 71%.",
+    "teses": [
+     "N04"
+    ]
+   }
   },
   {
    "id": "2.2",
@@ -244,7 +488,24 @@
    "acao": "▸ Pesquisar no sistema do OEMA estadual. Requerer certidão de inexistência ou cópia do auto estadual",
    "teses": [
     "N02"
-   ]
+   ],
+   "tecnico": {
+    "id": "2.2",
+    "modulo": "M2",
+    "titulo": "Autuação estadual paralela pelo mesmo fato",
+    "verificacao": "Existe auto de infração estadual (OEMA) sobre os mesmos fatos, área e período?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Pesquisar no sistema do OEMA estadual."
+   },
+   "juridico": {
+    "id": "2.2",
+    "qualificacao": "⚡ CRÍTICO — Dupla autuação é bis in idem. A segunda em ordem temporal é nula",
+    "encaminhamento_juridico": "Requerer certidão de inexistência ou cópia do auto estadual.",
+    "teses": [
+     "N02"
+    ]
+   }
   },
   {
    "id": "2.3",
@@ -257,7 +518,24 @@
    "acao": "▸ Verificar zoneamento do município na data. Se área urbana: IBAMA sem competência",
    "teses": [
     "N04"
-   ]
+   ],
+   "tecnico": {
+    "id": "2.3",
+    "modulo": "M2",
+    "titulo": "Imóvel em zona urbana sem bem da União",
+    "verificacao": "A infração ocorreu em zona urbana e não envolve bem da União, UC federal ou espécie federal ameaçada?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Verificar zoneamento do município na data. Se área urbana: IBAMA sem competência."
+   },
+   "juridico": {
+    "id": "2.3",
+    "qualificacao": "⚡ CRÍTICO — Em zona urbana, competência é municipal ou estadual (LC 140, arts. 9-11)",
+    "encaminhamento_juridico": null,
+    "teses": [
+     "N04"
+    ]
+   }
   },
   {
    "id": "2.4",
@@ -270,7 +548,24 @@
    "acao": "▸ Verificar Plano de Manejo da UC e confrontar com coordenadas GPS da infração. Solicitar sobreposição cartográfica",
    "teses": [
     "N04"
-   ]
+   ],
+   "tecnico": {
+    "id": "2.4",
+    "modulo": "M2",
+    "titulo": "Zona de amortecimento ou interior de UC?",
+    "verificacao": "Se a infração foi em zona de amortecimento de UC federal: a tipificação reflete isso (multa diferente)?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Verificar Plano de Manejo da UC e confrontar com coordenadas GPS da infração. Solicitar sobreposição cartográfica."
+   },
+   "juridico": {
+    "id": "2.4",
+    "qualificacao": "🔴 ALTO — Interior da UC = multa muito maior. Se foi na ZA, multa pode ter sido excessiva",
+    "encaminhamento_juridico": null,
+    "teses": [
+     "N04"
+    ]
+   }
   },
   {
    "id": "2.5",
@@ -283,7 +578,24 @@
    "acao": "▸ Consultar a IN MMA 148/2022 e a lista CITES. Se espécie errada: requerer retipificação e redução da multa",
    "teses": [
     "N19"
-   ]
+   ],
+   "tecnico": {
+    "id": "2.5",
+    "modulo": "M2",
+    "titulo": "Espécie fauna/flora corretamente classificada",
+    "verificacao": "A espécie apontada no auto está na lista de espécies ameaçadas (IN MMA 148/2022) ou é espécie comum?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Consultar a IN MMA 148/2022 e a lista CITES."
+   },
+   "juridico": {
+    "id": "2.5",
+    "qualificacao": "🔴 ALTO — Espécie comum autuada como ameaçada = tipificação errada e multa excessiva",
+    "encaminhamento_juridico": "Se espécie errada: requerer retipificação e redução da multa.",
+    "teses": [
+     "N19"
+    ]
+   }
   },
   {
    "id": "2.6",
@@ -296,7 +608,24 @@
    "acao": "▸ Pesquisar no sistema da ANM. Dupla autuação pelo mesmo ato material e bem jurídico = arguir bis in idem",
    "teses": [
     "N04"
-   ]
+   ],
+   "tecnico": {
+    "id": "2.6",
+    "modulo": "M2",
+    "titulo": "Competência ANM/DNPM concorrente (mineração)",
+    "verificacao": "Se a infração envolve atividade minerária: há autuação da ANM pelo mesmo fato?",
+    "gravidade": "ACESSORIO",
+    "peso": 4,
+    "providencia_tecnica": "Pesquisar no sistema da ANM."
+   },
+   "juridico": {
+    "id": "2.6",
+    "qualificacao": "🟡 MÉDIO — Dupla regulação ANM+IBAMA: verificar se configura bis in idem",
+    "encaminhamento_juridico": "Dupla autuação pelo mesmo ato material e bem jurídico = arguir bis in idem.",
+    "teses": [
+     "N04"
+    ]
+   }
   },
   {
    "id": "3.1",
@@ -309,7 +638,24 @@
    "acao": "▸ Comparar endereço do AR com domicílio real à época. Comprovante de endereço da data + declaração são a prova",
    "teses": [
     "N06"
-   ]
+   ],
+   "tecnico": {
+    "id": "3.1",
+    "modulo": "M3",
+    "titulo": "Endereço de notificação correto",
+    "verificacao": "O AR foi enviado ao endereço real do autuado (e não ao endereço do CNPJ desatualizado na Receita)?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Comparar endereço do AR com domicílio real à época. Comprovante de endereço da data + declaração são a prova."
+   },
+   "juridico": {
+    "id": "3.1",
+    "qualificacao": "⚡ CRÍTICO — Nulidade por notificação em endereço errado. Reabre prazo de defesa integralmente",
+    "encaminhamento_juridico": null,
+    "teses": [
+     "N06"
+    ]
+   }
   },
   {
    "id": "3.2",
@@ -322,7 +668,24 @@
    "acao": "▸ Se assinou terceiro: declaração do autuado informando que não tinha conhecimento até data X + prova da data real de ciência",
    "teses": [
     "N06"
-   ]
+   ],
+   "tecnico": {
+    "id": "3.2",
+    "modulo": "M3",
+    "titulo": "AR assinado pelo próprio autuado ou representante",
+    "verificacao": "Quem assinou o AR: o próprio, representante legal, ou porteiro/vizinho sem procuração?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Se assinou terceiro: declaração do autuado informando que não tinha conhecimento até data X + prova da data real de ciência."
+   },
+   "juridico": {
+    "id": "3.2",
+    "qualificacao": "🔴 ALTO — Assinatura de terceiro sem poderes: notificação inválida — prazo não corre",
+    "encaminhamento_juridico": null,
+    "teses": [
+     "N06"
+    ]
+   }
   },
   {
    "id": "3.3",
@@ -335,7 +698,24 @@
    "acao": "▸ Verificar no processo se há devolução do AR antes do DOU. Se não: nulidade da notificação por DOU",
    "teses": [
     "N06"
-   ]
+   ],
+   "tecnico": {
+    "id": "3.3",
+    "modulo": "M3",
+    "titulo": "Publicação no DOU justificada",
+    "verificacao": "Se notificado por DOU: houve tentativa prévia de AR frustrada documentada no processo?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Verificar no processo se há devolução do AR antes do DOU."
+   },
+   "juridico": {
+    "id": "3.3",
+    "qualificacao": "🔴 ALTO — DOU sem AR frustrado = modalidade subsidiária usada indevidamente (TRF3)",
+    "encaminhamento_juridico": "Se não: nulidade da notificação por DOU.",
+    "teses": [
+     "N06"
+    ]
+   }
   },
   {
    "id": "3.4",
@@ -348,7 +728,24 @@
    "acao": "▸ Verificar se o IBAMA computou o prazo da data do AR ou da data de postagem. Só conta da data de recebimento",
    "teses": [
     "N06"
-   ]
+   ],
+   "tecnico": {
+    "id": "3.4",
+    "modulo": "M3",
+    "titulo": "Prazo de defesa computado corretamente",
+    "verificacao": "O prazo de 20 dias foi contado a partir da data do AR ou da entrega pessoal?",
+    "gravidade": "ACESSORIO",
+    "peso": 4,
+    "providencia_tecnica": "Verificar se o IBAMA computou o prazo da data do AR ou da data de postagem. Só conta da data de recebimento."
+   },
+   "juridico": {
+    "id": "3.4",
+    "qualificacao": "🟡 MÉDIO — Prazo contado da data de emissão (não do recebimento): erro frequente",
+    "encaminhamento_juridico": null,
+    "teses": [
+     "N06"
+    ]
+   }
   },
   {
    "id": "3.5",
@@ -361,7 +758,24 @@
    "acao": "▸ Se houve julgamento sem notificação prévia: arguir nulidade por cerceamento de defesa e nulidade da decisão",
    "teses": [
     "N13"
-   ]
+   ],
+   "tecnico": {
+    "id": "3.5",
+    "modulo": "M3",
+    "titulo": "Notificação das decisões intermediárias",
+    "verificacao": "Para julgamentos de 1ª e 2ª instância, o autuado foi notificado da data e pauta?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Verificar e documentar: Para julgamentos de 1ª e 2ª instância, o autuado foi notificado da data e pauta."
+   },
+   "juridico": {
+    "id": "3.5",
+    "qualificacao": "🔴 ALTO — Julgamento sem notificação = cerceamento de defesa (art. 44, Lei 9.784/99)",
+    "encaminhamento_juridico": "Se houve julgamento sem notificação prévia: arguir nulidade por cerceamento de defesa e nulidade da decisão.",
+    "teses": [
+     "N13"
+    ]
+   }
   },
   {
    "id": "4.1",
@@ -374,7 +788,24 @@
    "acao": "▸ Solicitar os metadados completos. Sem eles: arguir que a prova não atende padrão técnico probatório",
    "teses": [
     "N09"
-   ]
+   ],
+   "tecnico": {
+    "id": "4.1",
+    "modulo": "M4",
+    "titulo": "Imagens de satélite com metadados completos",
+    "verificacao": "As imagens DETER/PRODES têm data, datum, resolução e identificação do analista documentados?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Verificar e documentar: As imagens DETER/PRODES têm data, datum, resolução e identificação do analista documentados."
+   },
+   "juridico": {
+    "id": "4.1",
+    "qualificacao": "⚡ CRÍTICO — Imagem sem metadados tem autenticidade e localização questionáveis",
+    "encaminhamento_juridico": "Solicitar os metadados completos Sem eles: arguir que a prova não atende padrão técnico probatório.",
+    "teses": [
+     "N09"
+    ]
+   }
   },
   {
    "id": "4.2",
@@ -387,7 +818,24 @@
    "acao": "▸ Se só há imagem: arguir que o DETER detecta alterações de cobertura (colheita, manejo, nuvens) — não comprova desmatamento ilegal per se",
    "teses": [
     "N09"
-   ]
+   ],
+   "tecnico": {
+    "id": "4.2",
+    "modulo": "M4",
+    "titulo": "Vistoria in loco confirmando o alerta de satélite",
+    "verificacao": "Há relatório de vistoria de campo confirmando o que foi visto no DETER? Ou a autuação baseou-se apenas na imagem?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Verificar e documentar: Há relatório de vistoria de campo confirmando o que foi visto no DETER? Ou a autuação baseou-se apenas na imagem."
+   },
+   "juridico": {
+    "id": "4.2",
+    "qualificacao": "⚡ CRÍTICO — Autuação só por DETER sem vistoria = prova insuficiente (TRF1 — AC 0014232)",
+    "encaminhamento_juridico": "Se só há imagem: arguir que o DETER detecta alterações de cobertura (colheita, manejo, nuvens) — não comprova desmatamento ilegal per se.",
+    "teses": [
+     "N09"
+    ]
+   }
   },
   {
    "id": "4.3",
@@ -400,7 +848,24 @@
    "acao": "▸ Solicitar os arquivos originais das fotos. Verificar EXIF com software gratuito (ExifTool). Se sem coordenadas: contestar localização",
    "teses": [
     "N23"
-   ]
+   ],
+   "tecnico": {
+    "id": "4.3",
+    "modulo": "M4",
+    "titulo": "Fotos com EXIF e georreferenciamento",
+    "verificacao": "As fotos do auto têm dados EXIF com data/hora e coordenadas GPS?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Solicitar os arquivos originais das fotos. Verificar EXIF com software gratuito (ExifTool). Se sem coordenadas: contestar localização."
+   },
+   "juridico": {
+    "id": "4.3",
+    "qualificacao": "🔴 ALTO — Fotos sem EXIF não provam local ou data da infração",
+    "encaminhamento_juridico": null,
+    "teses": [
+     "N23"
+    ]
+   }
   },
   {
    "id": "4.4",
@@ -413,7 +878,24 @@
    "acao": "▸ Requerer o formulário e credencial do laboratório. Falha em qualquer elo: arguir nulidade do laudo",
    "teses": [
     "N10"
-   ]
+   ],
+   "tecnico": {
+    "id": "4.4",
+    "modulo": "M4",
+    "titulo": "Cadeia de custódia das amostras (fauna/flora/poluição)",
+    "verificacao": "Há formulário de cadeia de custódia das amostras? Laboratório credenciado?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Verificar e documentar: Há formulário de cadeia de custódia das amostras? Laboratório credenciado."
+   },
+   "juridico": {
+    "id": "4.4",
+    "qualificacao": "⚡ CRÍTICO — Quebra da cadeia invalida laudos periciais (STJ — RHC 99.735/SP)",
+    "encaminhamento_juridico": "Requerer o formulário e credencial do laboratório. Falha em qualquer elo: arguir nulidade do laudo.",
+    "teses": [
+     "N10"
+    ]
+   }
   },
   {
    "id": "4.5",
@@ -426,7 +908,24 @@
    "acao": "▸ Contratar laudo de medição com GPS GNSS de precisão submétrica e ART. Frequentemente a área real é 20-40% menor que a imputada",
    "teses": [
     "N22"
-   ]
+   ],
+   "tecnico": {
+    "id": "4.5",
+    "modulo": "M4",
+    "titulo": "Metodologia de medição da área documentada",
+    "verificacao": "O relatório descreve como foi medida a área (GPS diferencial? Trena? Estação total?) e as condições do terreno?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Contratar laudo de medição com GPS GNSS de precisão submétrica e ART. Frequentemente a área real é 20-40% menor que a imputada."
+   },
+   "juridico": {
+    "id": "4.5",
+    "qualificacao": "🔴 ALTO — Medição por \"estimativa visual\" é impugnável com laudo técnico independente",
+    "encaminhamento_juridico": null,
+    "teses": [
+     "N22"
+    ]
+   }
   },
   {
    "id": "4.6",
@@ -439,7 +938,24 @@
    "acao": "▸ Laudo fitossociológico independente com inventário florístico. Identificar se é floresta primária, secundária em estágio avançado, médio ou inicial",
    "teses": [
     "N19"
-   ]
+   ],
+   "tecnico": {
+    "id": "4.6",
+    "modulo": "M4",
+    "titulo": "Classificação da vegetação correta",
+    "verificacao": "O fiscal classificou corretamente o estágio de regeneração ou tipologia da vegetação (primária vs secundária)?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Laudo fitossociológico independente com inventário florístico. Identificar se é floresta primária, secundária em estágio avançado, médio ou inicial."
+   },
+   "juridico": {
+    "id": "4.6",
+    "qualificacao": "⚡ CRÍTICO — Classificação errada muda o valor da multa por hectare drasticamente",
+    "encaminhamento_juridico": null,
+    "teses": [
+     "N19"
+    ]
+   }
   },
   {
    "id": "4.7",
@@ -450,7 +966,22 @@
    "peso": 4,
    "nota_risco": "🟡 MÉDIO — Entrada sem consentimento pode contaminar provas (teoria dos frutos da árvore envenenada)",
    "acao": "▸ Verificar se no RV há registro do consentimento. Se negado: estudar viabilidade de arguir ilicitude das provas obtidas",
-   "teses": []
+   "teses": [],
+   "tecnico": {
+    "id": "4.7",
+    "modulo": "M4",
+    "titulo": "Acesso ao imóvel regular",
+    "verificacao": "O fiscal entrou no imóvel com consentimento do proprietário ou mandado judicial?",
+    "gravidade": "ACESSORIO",
+    "peso": 4,
+    "providencia_tecnica": "Verificar se no RV há registro do consentimento."
+   },
+   "juridico": {
+    "id": "4.7",
+    "qualificacao": "🟡 MÉDIO — Entrada sem consentimento pode contaminar provas (teoria dos frutos da árvore envenenada)",
+    "encaminhamento_juridico": "Se negado: estudar viabilidade de arguir ilicitude das provas obtidas.",
+    "teses": []
+   }
   },
   {
    "id": "4.8",
@@ -463,7 +994,24 @@
    "acao": "▸ Verificar se há evidências no processo de quem praticou o ato. Proprietário não é automaticamente responsável por atos de arrendatário",
    "teses": [
     "N20"
-   ]
+   ],
+   "tecnico": {
+    "id": "4.8",
+    "modulo": "M4",
+    "titulo": "Nexo causal demonstrado",
+    "verificacao": "Há prova concreta de que o autuado foi o responsável direto pela conduta (não terceiro, não evento natural)?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Verificar se há evidências no processo de quem praticou o ato. Proprietário não é automaticamente responsável por atos de arrendatário."
+   },
+   "juridico": {
+    "id": "4.8",
+    "qualificacao": "🔴 ALTO — Responsabilidade objetiva do proprietário tem limites — força maior e fato de terceiro excluem",
+    "encaminhamento_juridico": null,
+    "teses": [
+     "N20"
+    ]
+   }
   },
   {
    "id": "4.9",
@@ -476,7 +1024,24 @@
    "teses": [
     "N18"
    ],
-   "peso": 7
+   "peso": 7,
+   "tecnico": {
+    "id": "4.9",
+    "modulo": "M4",
+    "titulo": "Área medida confere com a área imputada no auto",
+    "verificacao": "A área apurada em campo ou por imagem coincide com a área que consta do auto e serviu de base para o cálculo da multa?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Verificar e documentar: A área apurada em campo ou por imagem coincide com a área que consta do auto e serviu de base para o cálculo da multa."
+   },
+   "juridico": {
+    "id": "4.9",
+    "qualificacao": "🔴 ALTO — Divergência entre a área medida e a imputada contamina a dosimetria inteira, porque a multa é calculada por hectare.",
+    "encaminhamento_juridico": "Se NÃO: requerer perícia ou apresentar laudo independente com memorial descritivo georreferenciado, e pleitear a redução proporcional da multa.",
+    "teses": [
+     "N18"
+    ]
+   }
   },
   {
    "id": "5.1",
@@ -489,7 +1054,24 @@
    "acao": "▸ Se não fundamentado: arguir nulidade da dosimetria e requerer recalculação com cada critério analisado individualmente",
    "teses": [
     "N01"
-   ]
+   ],
+   "tecnico": {
+    "id": "5.1",
+    "modulo": "M5",
+    "titulo": "Critérios de dosimetria fundamentados",
+    "verificacao": "O auto explicita os cinco critérios de dosimetria — gravidade dos fatos, antecedentes do autuado, situação econômica, cooperação e extensão do dano?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Verificar e documentar se o auto registra de forma expressa cada um dos cinco critérios de dosimetria: gravidade, antecedentes, situação econômica, cooperação e extensão do dano."
+   },
+   "juridico": {
+    "id": "5.1",
+    "qualificacao": "⚡ CRÍTICO — Ausente em ~60% dos autos. Taxa de êxito para redução: 72%",
+    "encaminhamento_juridico": "Se não fundamentado: arguir nulidade da dosimetria e requerer recalculação com cada critério analisado individualmente.",
+    "teses": [
+     "N01"
+    ]
+   }
   },
   {
    "id": "5.2",
@@ -502,7 +1084,24 @@
    "acao": "▸ Requerer a memória. Se não fornecida: arguir cerceamento de defesa e solicitar recalculação fundamentada",
    "teses": [
     "N24"
-   ]
+   ],
+   "tecnico": {
+    "id": "5.2",
+    "modulo": "M5",
+    "titulo": "Memória de cálculo apresentada",
+    "verificacao": "Há no processo o cálculo discriminado: área × valor/ha × fatores de agravamento/atenuação?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Verificar e documentar: Há no processo o cálculo discriminado: área × valor/ha × fatores de agravamento/atenuação."
+   },
+   "juridico": {
+    "id": "5.2",
+    "qualificacao": "🔴 ALTO — Sem memória de cálculo: impossível verificar se a fórmula foi corretamente aplicada",
+    "encaminhamento_juridico": "Requerer a memória Se não fornecida: arguir cerceamento de defesa e solicitar recalculação fundamentada.",
+    "teses": [
+     "N24"
+    ]
+   }
   },
   {
    "id": "5.3",
@@ -515,7 +1114,24 @@
    "acao": "▸ Requerer as certidões de antecedentes ambientais. Se autuação anterior ainda em fase recursal: não é reincidência",
    "teses": [
     "N01"
-   ]
+   ],
+   "tecnico": {
+    "id": "5.3",
+    "modulo": "M5",
+    "titulo": "Triplicação por reincidência",
+    "verificacao": "Se a multa foi triplicada por reincidência: há nos autos comprovação de autuação anterior definitivamente julgada?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Se autuação anterior ainda em fase recursal: não é reincidência."
+   },
+   "juridico": {
+    "id": "5.3",
+    "qualificacao": "⚡ CRÍTICO — Reincidência sem prova de condenação anterior: agravamento indevido",
+    "encaminhamento_juridico": "Requerer as certidões de antecedentes ambientais.",
+    "teses": [
+     "N01"
+    ]
+   }
   },
   {
    "id": "5.4",
@@ -528,7 +1144,24 @@
    "acao": "▸ Verificar os limites do tipo específico no Anexo II. Calcular se a área × valor/ha não ultrapassa o teto global",
    "teses": [
     "N01"
-   ]
+   ],
+   "tecnico": {
+    "id": "5.4",
+    "modulo": "M5",
+    "titulo": "Valor ultrapassa o máximo legal para o tipo",
+    "verificacao": "O valor aplicado excede o limite máximo previsto na tabela oficial para aquele tipo infracional específico?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Verificar os limites do tipo específico no Anexo II. Calcular se a área × valor/ha não ultrapassa o teto global."
+   },
+   "juridico": {
+    "id": "5.4",
+    "qualificacao": "⚡ CRÍTICO — Multa acima do teto legal é absolutamente nula nessa parte",
+    "encaminhamento_juridico": null,
+    "teses": [
+     "N01"
+    ]
+   }
   },
   {
    "id": "5.5",
@@ -541,7 +1174,24 @@
    "acao": "▸ Documentar cada atenuante com prova: certidão de primário, balanço contábil, PRAD iniciado, declaração de cooperação",
    "teses": [
     "N01"
-   ]
+   ],
+   "tecnico": {
+    "id": "5.5",
+    "modulo": "M5",
+    "titulo": "Atenuantes não consideradas",
+    "verificacao": "Há circunstâncias atenuantes documentadas: primário, baixa renda, reparação imediata, cooperação — que não foram consideradas?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Documentar cada atenuante com prova: certidão de primário, balanço contábil, PRAD iniciado, declaração de cooperação."
+   },
+   "juridico": {
+    "id": "5.5",
+    "qualificacao": "🔴 ALTO — Atenuantes obrigatoriamente consideradas reduzem a multa até o mínimo",
+    "encaminhamento_juridico": null,
+    "teses": [
+     "N01"
+    ]
+   }
   },
   {
    "id": "5.6",
@@ -554,7 +1204,24 @@
    "acao": "▸ Se há mais de um auto sobre o mesmo evento: arguir que configuram punição em duplicidade pelo mesmo fato material",
    "teses": [
     "N01"
-   ]
+   ],
+   "tecnico": {
+    "id": "5.6",
+    "modulo": "M5",
+    "titulo": "Cumulação de multas pelo mesmo ato material",
+    "verificacao": "O IBAMA aplicou múltiplas multas (por auto separado) pelo mesmo ato físico em datas próximas?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Verificar e documentar: O IBAMA aplicou múltiplas multas (por auto separado) pelo mesmo ato físico em datas próximas."
+   },
+   "juridico": {
+    "id": "5.6",
+    "qualificacao": "🔴 ALTO — Múltiplas multas pelo mesmo ato = bis in idem, ainda que em autos separados",
+    "encaminhamento_juridico": "Se há mais de um auto sobre o mesmo evento: arguir que configuram punição em duplicidade pelo mesmo fato material.",
+    "teses": [
+     "N01"
+    ]
+   }
   },
   {
    "id": "6.1",
@@ -567,7 +1234,24 @@
    "acao": "▸ Calcular: data do fato (conforme imagem satélite apontada pelo IBAMA) + 3 anos > data do auto? Se sim: prescrição consumada",
    "teses": [
     "N03"
-   ]
+   ],
+   "tecnico": {
+    "id": "6.1",
+    "modulo": "M6",
+    "titulo": "Decurso de prazo entre o fato e a lavratura do auto",
+    "verificacao": "Transcorreram mais de 3 anos entre a data do fato e a lavratura do auto de infração?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Calcular e registrar o intervalo exato entre a data do fato e a data de lavratura do auto, em anos e meses."
+   },
+   "juridico": {
+    "id": "6.1",
+    "qualificacao": "⚡ CRÍTICO — Prescrição da pretensão punitiva extingue o processo sem análise de mérito",
+    "encaminhamento_juridico": "Calcular: data do fato (conforme imagem satélite apontada pelo IBAMA) + 3 anos > data do auto? Se sim: prescrição consumada.",
+    "teses": [
+     "N03"
+    ]
+   }
   },
   {
    "id": "6.2",
@@ -580,7 +1264,24 @@
    "acao": "▸ Extrair timeline do SEI/SEIA e calcular cada intervalo. Qualquer hiato > 3 anos por inércia do IBAMA = arguir prescrição",
    "teses": [
     "N03"
-   ]
+   ],
+   "tecnico": {
+    "id": "6.2",
+    "modulo": "M6",
+    "titulo": "Paralisação do processo sem movimentação",
+    "verificacao": "O processo permaneceu mais de 3 anos sem qualquer movimentação ou despacho?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Levantar a cronologia de movimentações do processo e registrar o maior intervalo sem qualquer ato ou despacho."
+   },
+   "juridico": {
+    "id": "6.2",
+    "qualificacao": "⚡ CRÍTICO — STF Tema 606: prescrição intercorrente por inércia administrativa. Taxa de êxito: 55%",
+    "encaminhamento_juridico": "Qualquer hiato > 3 anos por inércia do IBAMA = arguir prescrição.",
+    "teses": [
+     "N03"
+    ]
+   }
   },
   {
    "id": "6.3",
@@ -593,7 +1294,24 @@
    "acao": "▸ Verificar data de inscrição na DA e data de ajuizamento da execução. Se diferença > 5 anos: arguir prescrição na exceção de pré-executividade",
    "teses": [
     "N03"
-   ]
+   ],
+   "tecnico": {
+    "id": "6.3",
+    "modulo": "M6",
+    "titulo": "Decurso de prazo desde a inscrição em dívida ativa",
+    "verificacao": "Transcorreram mais de 5 anos entre a inscrição em dívida ativa e a citação na execução?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Registrar a data de inscrição em dívida ativa e a data da citação na execução, calculando o intervalo."
+   },
+   "juridico": {
+    "id": "6.3",
+    "qualificacao": "⚡ CRÍTICO — Prescrição executória extingue a CDA e a cobrança sem possibilidade de reabertura",
+    "encaminhamento_juridico": "Se diferença > 5 anos: arguir prescrição na exceção de pré-executividade.",
+    "teses": [
+     "N03"
+    ]
+   }
   },
   {
    "id": "6.4",
@@ -604,7 +1322,22 @@
    "peso": 7,
    "nota_risco": "🔴 ALTO — Prescrição antecipada: argumento para ANPP ou suspensão condicional do processo",
    "acao": "▸ Calcular: pena mínima do crime imputado → prazo de prescrição (art. 109, CP) → se já decorrido: argüir extinção da punibilidade",
-   "teses": []
+   "teses": [],
+   "tecnico": {
+    "id": "6.4",
+    "modulo": "M6",
+    "titulo": "Marcos temporais do processo criminal paralelo",
+    "verificacao": "Há processo criminal paralelo e quais são suas datas de instauração e últimos atos?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Verificar a existência de processo criminal paralelo e registrar as datas de instauração, denúncia e último ato praticado."
+   },
+   "juridico": {
+    "id": "6.4",
+    "qualificacao": "🔴 ALTO — Prescrição antecipada: argumento para ANPP ou suspensão condicional do processo",
+    "encaminhamento_juridico": "Calcular: pena mínima do crime imputado → prazo de prescrição (art. 109, CP) → se já decorrido: argüir extinção da punibilidade.",
+    "teses": []
+   }
   },
   {
    "id": "6.5",
@@ -617,7 +1350,24 @@
    "acao": "▸ Verificar data do trânsito + 5 anos vs. data de inscrição na DA. Se inscrição posterior: arguir prescrição da pretensão executória",
    "teses": [
     "N15"
-   ]
+   ],
+   "tecnico": {
+    "id": "6.5",
+    "modulo": "M6",
+    "titulo": "Inscrição em DA dentro do prazo de 5 anos do trânsito",
+    "verificacao": "Se houve trânsito em julgado administrativo: a inscrição na DA ocorreu em até 5 anos?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Verificar data do trânsito + 5 anos vs. data de inscrição na DA."
+   },
+   "juridico": {
+    "id": "6.5",
+    "qualificacao": "⚡ CRÍTICO — Inscrição após 5 anos do trânsito: CDA prescrita e inválida",
+    "encaminhamento_juridico": "Se inscrição posterior: arguir prescrição da pretensão executória.",
+    "teses": [
+     "N15"
+    ]
+   }
   },
   {
    "id": "6.6",
@@ -628,7 +1378,22 @@
    "peso": 10,
    "nota_risco": "⚡ CRÍTICO — Se PRA homologado: extinção da responsabilidade é ex lege — obrigatória",
    "acao": "▸ Verificar data do fato imputado. Se anterior a 22/07/2008 e há PRA em andamento: apresentar no processo e requerer extinção",
-   "teses": []
+   "teses": [],
+   "tecnico": {
+    "id": "6.6",
+    "modulo": "M6",
+    "titulo": "Infração anterior a 22/07/2008",
+    "verificacao": "O fato ocorreu antes de 22/07/2008 e o imóvel aderiu ao PRA (Programa de Regularização Ambiental)?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Verificar data do fato imputado."
+   },
+   "juridico": {
+    "id": "6.6",
+    "qualificacao": "⚡ CRÍTICO — Se PRA homologado: extinção da responsabilidade é ex lege — obrigatória",
+    "encaminhamento_juridico": "Se anterior a 22/07/2008 e há PRA em andamento: apresentar no processo e requerer extinção.",
+    "teses": []
+   }
   },
   {
    "id": "7.1",
@@ -641,7 +1406,24 @@
    "acao": "▸ Comparar data da inscrição na DA com data de encerramento do prazo recursal. Se anterior: MS imediato",
    "teses": [
     "N15"
-   ]
+   ],
+   "tecnico": {
+    "id": "7.1",
+    "modulo": "M7",
+    "titulo": "Inscrição antes do trânsito em julgado",
+    "verificacao": "A CDA foi inscrita durante prazo recursal ainda em curso ou antes de decisão definitiva?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Verificar e documentar: A CDA foi inscrita durante prazo recursal ainda em curso ou antes de decisão definitiva."
+   },
+   "juridico": {
+    "id": "7.1",
+    "qualificacao": "⚡ CRÍTICO — Inscrição prematura = nulidade da CDA. MS cabível com alta chance de liminar (88% de êxito)",
+    "encaminhamento_juridico": "Comparar data da inscrição na DA com data de encerramento do prazo recursal. Se anterior: MS imediato.",
+    "teses": [
+     "N15"
+    ]
+   }
   },
   {
    "id": "7.2",
@@ -654,7 +1436,24 @@
    "acao": "▸ Conferir cada elemento do art. 202 do CTN e art. 2º, §5º da LEF. Qualquer ausência: exceção de pré-executividade",
    "teses": [
     "N16"
-   ]
+   ],
+   "tecnico": {
+    "id": "7.2",
+    "modulo": "M7",
+    "titulo": "Elementos formais da Certidão de Dívida Ativa",
+    "verificacao": "A CDA contém todos os elementos: nome, domicílio, valor, origem, fundamento legal, índice de correção?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Conferir cada elemento do art."
+   },
+   "juridico": {
+    "id": "7.2",
+    "qualificacao": "🔴 ALTO — Vícios formais insanáveis na CDA = nulidade da execução fiscal",
+    "encaminhamento_juridico": "202 do CTN e art. 2º, §5º da LEF Qualquer ausência: exceção de pré-executividade.",
+    "teses": [
+     "N16"
+    ]
+   }
   },
   {
    "id": "7.3",
@@ -667,7 +1466,24 @@
    "acao": "▸ Calcular o valor da multa original + SELIC desde a data de vencimento. Se CDA traz valor divergente: arguir excesso de execução",
    "teses": [
     "N16"
-   ]
+   ],
+   "tecnico": {
+    "id": "7.3",
+    "modulo": "M7",
+    "titulo": "Valor da CDA corresponde ao processo administrativo",
+    "verificacao": "O valor inscrito na DA é idêntico ao valor da multa no processo + juros/correção corretamente calculados?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Calcular o valor da multa original + SELIC desde a data de vencimento."
+   },
+   "juridico": {
+    "id": "7.3",
+    "qualificacao": "🔴 ALTO — Valor incorreto = excesso de execução arguível",
+    "encaminhamento_juridico": "Se CDA traz valor divergente: arguir excesso de execução.",
+    "teses": [
+     "N16"
+    ]
+   }
   },
   {
    "id": "7.4",
@@ -680,7 +1496,24 @@
    "acao": "▸ Se CDA redirecionada a sócio: arguir ilegitimidade passiva — STJ exige prova específica de ato ilícito do sócio",
    "teses": [
     "N25"
-   ]
+   ],
+   "tecnico": {
+    "id": "7.4",
+    "modulo": "M7",
+    "titulo": "Sujeito passivo correto na CDA",
+    "verificacao": "A CDA está em nome do autuado correto? Não há redirecionamento indevido para sócios ou terceiros?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Verificar e documentar: A CDA está em nome do autuado correto? Não há redirecionamento indevido para sócios ou terceiros."
+   },
+   "juridico": {
+    "id": "7.4",
+    "qualificacao": "⚡ CRÍTICO — Redirecionamento de execução para sócio exige prova de dissolução irregular ou dolo (STJ — Tema 962)",
+    "encaminhamento_juridico": "Se CDA redirecionada a sócio: arguir ilegitimidade passiva — STJ exige prova específica de ato ilícito do sócio.",
+    "teses": [
+     "N25"
+    ]
+   }
   },
   {
    "id": "7.5",
@@ -691,7 +1524,22 @@
    "peso": 7,
    "nota_risco": "🔴 ALTO — Bloqueio antes da citação formal viola o devido processo",
    "acao": "▸ Verificar a ordem dos atos. Se houve bloqueio antes da citação: agravo de instrumento imediato. Oferecer substitutivo de penhora (imóvel/fiança)",
-   "teses": []
+   "teses": [],
+   "tecnico": {
+    "id": "7.5",
+    "modulo": "M7",
+    "titulo": "SISBAJUD já acionado",
+    "verificacao": "Houve bloqueio de contas via SISBAJUD antes da citação formal e oportunidade de oferecer bens à penhora?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Verificar a ordem dos atos. Se houve bloqueio antes da citação: agravo de instrumento imediato. Oferecer substitutivo de penhora (imóvel/fiança)."
+   },
+   "juridico": {
+    "id": "7.5",
+    "qualificacao": "🔴 ALTO — Bloqueio antes da citação formal viola o devido processo",
+    "encaminhamento_juridico": null,
+    "teses": []
+   }
   },
   {
    "id": "7.6",
@@ -702,7 +1550,22 @@
    "peso": 4,
    "nota_risco": "🟡 MÉDIO — Transação é oportunidade de grande redução — verificar elegibilidade",
    "acao": "▸ Acessar o portal REGULARIZE (PGFN). Débitos acima de R$ 1M com capacidade de pagamento reduzida são elegíveis para transação com até 65% de desconto em multas e juros",
-   "teses": []
+   "teses": [],
+   "tecnico": {
+    "id": "7.6",
+    "modulo": "M7",
+    "titulo": "Elegibilidade a programa de transação da PGFN",
+    "verificacao": "O débito é de grande valor e há capacidade de pagamento reduzida documentada? Transação com 65% de desconto?",
+    "gravidade": "ACESSORIO",
+    "peso": 4,
+    "providencia_tecnica": "Acessar o portal REGULARIZE (PGFN). Débitos acima de R$ 1M com capacidade de pagamento reduzida são elegíveis para transação com até 65% de desconto em multas e juros."
+   },
+   "juridico": {
+    "id": "7.6",
+    "qualificacao": "🟡 MÉDIO — Transação é oportunidade de grande redução — verificar elegibilidade",
+    "encaminhamento_juridico": null,
+    "teses": []
+   }
   },
   {
    "id": "8.1",
@@ -713,7 +1576,22 @@
    "peso": 10,
    "nota_risco": "⚡ CRÍTICO — Depoimento no processo adm. pode prejudicar defesa criminal. Não fazer afirmações que se tornem provas contra si",
    "acao": "▸ Coordenar com advogado criminalista. A defesa administrativa deve ser compatível com a tese criminal. Não confessar fatos que ainda são objeto de IP",
-   "teses": []
+   "teses": [],
+   "tecnico": {
+    "id": "8.1",
+    "modulo": "M8",
+    "titulo": "Processo criminal paralelo identificado",
+    "verificacao": "Há IP ou ação penal em curso pelos mesmos fatos? Coordenação entre as defesas foi realizada?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Não confessar fatos que ainda são objeto de IP."
+   },
+   "juridico": {
+    "id": "8.1",
+    "qualificacao": "⚡ CRÍTICO — Depoimento no processo adm. pode prejudicar defesa criminal. Não fazer afirmações que se tornem provas contra si",
+    "encaminhamento_juridico": "Coordenar com advogado criminalista A defesa administrativa deve ser compatível com a tese criminal.",
+    "teses": []
+   }
   },
   {
    "id": "8.2",
@@ -724,7 +1602,22 @@
    "peso": 7,
    "nota_risco": "🔴 ALTO — ANPP extingue ação penal sem condenação. TAC suspende processo civil e criminal simultaneamente",
    "acao": "▸ Avaliar elegibilidade para ANPP (pena mínima < 4 anos). Propor ao MPF termos de TAC com obrigações de recuperação ambiental factíveis",
-   "teses": []
+   "teses": [],
+   "tecnico": {
+    "id": "8.2",
+    "modulo": "M8",
+    "titulo": "TAC ou ANPP negociado com o MPF",
+    "verificacao": "Para processos com potencial criminal: foi avaliada a possibilidade de TAC ou ANPP com o MPF?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Avaliar elegibilidade para ANPP (pena mínima < 4 anos). Propor ao MPF termos de TAC com obrigações de recuperação ambiental factíveis."
+   },
+   "juridico": {
+    "id": "8.2",
+    "qualificacao": "🔴 ALTO — ANPP extingue ação penal sem condenação. TAC suspende processo civil e criminal simultaneamente",
+    "encaminhamento_juridico": null,
+    "teses": []
+   }
   },
   {
    "id": "8.3",
@@ -737,7 +1630,24 @@
    "acao": "▸ Contratar elaboração de PRAD com cronograma de execução. Apresentar ao IBAMA mesmo que ainda não aprovado — demonstra boa-fé",
    "teses": [
     "N26"
-   ]
+   ],
+   "tecnico": {
+    "id": "8.3",
+    "modulo": "M8",
+    "titulo": "PRAD elaborado e em execução",
+    "verificacao": "Há Plano de Recuperação de Área Degradada elaborado por engenheiro e aprovado (ou em aprovação)?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Contratar elaboração de PRAD com cronograma de execução. Apresentar ao IBAMA mesmo que ainda não aprovado — demonstra boa-fé."
+   },
+   "juridico": {
+    "id": "8.3",
+    "qualificacao": "🔴 ALTO — PRAD demonstra boa-fé, atenua a multa, pode converter a sanção e liberar o embargo",
+    "encaminhamento_juridico": null,
+    "teses": [
+     "N26"
+    ]
+   }
   },
   {
    "id": "8.4",
@@ -750,7 +1660,24 @@
    "acao": "▸ Verificar situação do CAR no SICAR. Adotar PRA junto ao órgão estadual. Apresentar prova de adesão no processo federal",
    "teses": [
     "N26"
-   ]
+   ],
+   "tecnico": {
+    "id": "8.4",
+    "modulo": "M8",
+    "titulo": "CAR atualizado e PRA aderido (se aplicável)",
+    "verificacao": "O CAR do imóvel está atualizado com análise aprovada? Se há passivo anterior a 2012, o PRA foi aderido?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Verificar situação do CAR no SICAR. Adotar PRA junto ao órgão estadual. Apresentar prova de adesão no processo federal."
+   },
+   "juridico": {
+    "id": "8.4",
+    "qualificacao": "⚡ CRÍTICO — PRA com adesão em dia: suspensão das sanções para infrações anteriores a 22/07/2008",
+    "encaminhamento_juridico": null,
+    "teses": [
+     "N26"
+    ]
+   }
   },
   {
    "id": "8.5",
@@ -763,7 +1690,24 @@
    "acao": "▸ Contratar imediatamente. Exigir: medição GPS GNSS, inventário florístico, análise das imagens históricas, ART no CREA, metodologia detalhada",
    "teses": [
     "N27"
-   ]
+   ],
+   "tecnico": {
+    "id": "8.5",
+    "modulo": "M8",
+    "titulo": "Laudo técnico independente contratado",
+    "verificacao": "Há laudo de engenheiro ambiental independente com ART cobrindo área, tipologia vegetal e análise das provas do IBAMA?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Contratar imediatamente Exigir: medição GPS GNSS, inventário florístico, análise das imagens históricas, ART no CREA, metodologia detalhada."
+   },
+   "juridico": {
+    "id": "8.5",
+    "qualificacao": "⚡ CRÍTICO — Defesa sem laudo técnico tem 17% de êxito. Com laudo: 55-62%. O laudo é o maior diferencial",
+    "encaminhamento_juridico": null,
+    "teses": [
+     "N27"
+    ]
+   }
   },
   {
    "id": "8.6",
@@ -776,7 +1720,24 @@
    "acao": "▸ Configurar alertas no SEI/SEIA. Acessar mensalmente. Requerer vista dos autos antes de qualquer decisão a cada 6 meses durante o processo",
    "teses": [
     "N13"
-   ]
+   ],
+   "tecnico": {
+    "id": "8.6",
+    "modulo": "M8",
+    "titulo": "Monitoramento do processo no SEI/SEIA",
+    "verificacao": "O advogado acessa o processo no sistema IBAMA regularmente para monitorar movimentação e evitar decisões surpresa?",
+    "gravidade": "RELEVANTE",
+    "peso": 7,
+    "providencia_tecnica": "Configurar alertas no SEI/SEIA Acessar mensalmente."
+   },
+   "juridico": {
+    "id": "8.6",
+    "qualificacao": "🔴 ALTO — Decisões proferidas sem comunicação ao advogado são frequentes — monitoramento mensal é mínimo aceitável",
+    "encaminhamento_juridico": "Requerer vista dos autos antes de qualquer decisão a cada 6 meses durante o processo.",
+    "teses": [
+     "N13"
+    ]
+   }
   },
   {
    "id": "8.7",
@@ -789,7 +1750,24 @@
    "teses": [
     "N28"
    ],
-   "peso": 4
+   "peso": 4,
+   "tecnico": {
+    "id": "8.7",
+    "modulo": "M8",
+    "titulo": "Imóvel rural de até 4 módulos fiscais",
+    "verificacao": "O imóvel se enquadra como pequena propriedade ou posse rural familiar, de até 4 módulos fiscais?",
+    "gravidade": "ACESSORIO",
+    "peso": 4,
+    "providencia_tecnica": "Verificar e documentar: O imóvel se enquadra como pequena propriedade ou posse rural familiar, de até 4 módulos fiscais."
+   },
+   "juridico": {
+    "id": "8.7",
+    "qualificacao": "🟡 MÉDIO — Enquadramento aciona regime diferenciado de regularização e sanção.",
+    "encaminhamento_juridico": "Se SIM: invocar o regime diferenciado da Lei 12.651/2012 e requerer a conversão da multa em serviços de recuperação ambiental.",
+    "teses": [
+     "N28"
+    ]
+   }
   },
   {
    "id": "9.1",
@@ -802,7 +1780,24 @@
    "teses": [
     "N14"
    ],
-   "peso": 10
+   "peso": 10,
+   "tecnico": {
+    "id": "9.1",
+    "modulo": "M9",
+    "titulo": "Exigência de depósito prévio, caução ou arrolamento para recorrer",
+    "verificacao": "Para conhecer ou processar o recurso administrativo, o órgão exigiu depósito prévio, caução, arrolamento de bens ou comprovação de pagamento da multa?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Verificar e documentar: Para conhecer ou processar o recurso administrativo, o órgão exigiu depósito prévio, caução, arrolamento de bens ou comprovação de pagamento da multa."
+   },
+   "juridico": {
+    "id": "9.1",
+    "qualificacao": "⚡ CRÍTICO — Exigência inconstitucional. STF Súmula Vinculante 21: é inconstitucional a exigência de depósito ou arrolamento prévios para admissibilidade de recurso administrativo.",
+    "encaminhamento_juridico": "Se SIM: arguir de imediato a inconstitucionalidade com base na SV 21 e requerer o processamento do recurso independentemente de depósito. Cabe reclamação ao STF em caso de descumprimento da súmula vinculante.",
+    "teses": [
+     "N14"
+    ]
+   }
   },
   {
    "id": "9.2",
@@ -815,7 +1810,24 @@
    "teses": [
     "N14"
    ],
-   "peso": 10
+   "peso": 10,
+   "tecnico": {
+    "id": "9.2",
+    "modulo": "M9",
+    "titulo": "Recurso não conhecido por barreira econômica",
+    "verificacao": "O recurso deixou de ser conhecido, foi devolvido ou teve seguimento negado por falta de pagamento, garantia ou recolhimento de taxa?",
+    "gravidade": "DETERMINANTE",
+    "peso": 10,
+    "providencia_tecnica": "Verificar e documentar: O recurso deixou de ser conhecido, foi devolvido ou teve seguimento negado por falta de pagamento, garantia ou recolhimento de taxa."
+   },
+   "juridico": {
+    "id": "9.2",
+    "qualificacao": "⚡ CRÍTICO — Não conhecimento por barreira econômica esvazia o duplo grau administrativo e o contraditório.",
+    "encaminhamento_juridico": "Se SIM: requerer a anulação da decisão de não conhecimento e o regular processamento do recurso — SV 21 c/c art. 2º da Lei 9.784/1999.",
+    "teses": [
+     "N14"
+    ]
+   }
   }
  ],
  "nulidades": [

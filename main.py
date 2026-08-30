@@ -102,6 +102,46 @@ def executar_auditoria(
     return resultado
 
 
+@app.post("/api/laudo-tecnico")
+def emitir_laudo_tecnico(
+    req: AuditoriaRequest,
+    authorization: Optional[str] = Header(None),
+    db: Session = Depends(get_db),
+):
+    """
+    Camada do CONSUMIDOR FINAL — Inteligência Forense.
+
+    Devolve apenas constatações técnicas verificáveis. Nenhuma tese, taxa de
+    êxito, citação de jurisprudência ou valor projetado por probabilidade
+    trafega por aqui: a separação é feita no servidor, de modo que o aplicativo
+    do consumidor nunca chega a receber a camada jurídica.
+    """
+    _checar_auth(authorization)
+    completo = catalogo.executar_auditoria(req.respostas, req.valorMulta)
+    if req.casoId:
+        caso = db.query(Caso).filter(Caso.id == req.casoId).first()
+        if caso:
+            caso.audit_result = completo
+            db.commit()
+    laudo = catalogo.laudo_tecnico(completo)
+    # O valor da multa é fato, e acompanha o laudo. O valor projetado por
+    # probabilidade de êxito, não — esse fica no anexo jurídico.
+    if req.valorMulta:
+        laudo["valor_da_multa_em_analise"] = req.valorMulta
+    return laudo
+
+
+@app.post("/api/anexo-juridico")
+def emitir_anexo_juridico(req: AuditoriaRequest, authorization: Optional[str] = Header(None)):
+    """
+    Camada do ADVOGADO constituído pelo cliente — ou uso interno de priorização.
+    Qualificação das constatações, teses, fundamentos, taxas e exposição financeira.
+    """
+    _checar_auth(authorization)
+    completo = catalogo.executar_auditoria(req.respostas, req.valorMulta)
+    return catalogo.anexo_juridico(completo)
+
+
 # ───────────────────────── IA: diagnóstico + peças ─────────────────────────
 class DiagnosticoRequest(BaseModel):
     formData: dict[str, Any]

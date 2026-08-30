@@ -12,6 +12,7 @@ Agora o catálogo existe uma única vez, aqui, e o front-end o consome pela
 API. Conteúdo consolidado de duas fontes reais do próprio acervo:
   · ATLAS-IA (app React) — 20 nulidades com teses e taxas
   · ATLAS FORENSE v2.1 — 55 itens de verificação em 8 módulos + 20 nulidades
+    (o catálogo hoje tem 60 itens em 9 módulos, com os 5 acrescidos na v1.1)
 
 Onde as duas fontes divergem sobre a taxa de êxito de uma tese, o conflito
 fica REGISTRADO no catálogo (campos `taxa_divergente` e `nota_divergencia`),
@@ -85,7 +86,7 @@ def executar_auditoria(respostas: dict[str, str], valor_multa=None) -> dict:
       · score            — falhas sobre o que foi de fato avaliado (exclui N/A).
                            É a leitura honesta quando o processo ainda não foi
                            todo verificado.
-      · score_absoluto   — falhas sobre o total do catálogo (448 pontos).
+      · score_absoluto   — falhas sobre o total do catálogo (486 pontos).
                            Só é comparável entre casos totalmente preenchidos.
 
     O sistema não emite juízo jurídico: aponta falhas e as teses associadas,
@@ -168,4 +169,115 @@ def executar_auditoria(respostas: dict[str, str], valor_multa=None) -> dict:
         "teses_acionaveis": teses,
         "exposicao_financeira": _valor_em_risco(valor_multa, teses),
         "metodologia": cat["regra_de_peso"],
+    }
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# AS DUAS CAMADAS DE SAÍDA
+#
+# A auditoria completa acima é uso INTERNO. Ela mistura constatação técnica
+# com qualificação jurídica, e a segunda é atividade privativa de advogado
+# (Lei 8.906/94, art. 1º). As duas funções abaixo projetam esse resultado nas
+# camadas que efetivamente saem do sistema:
+#
+#   laudo_tecnico()   → consumidor final. Só fato verificável. Sem tese, sem
+#                       taxa de êxito, sem jurisprudência, sem valor projetado
+#                       por probabilidade.
+#   anexo_juridico()  → advogado contratado pelo cliente, ou uso interno de
+#                       priorização comercial.
+#
+# Regra de segurança: a separação vale no SERVIDOR. O aplicativo do consumidor
+# chama o endpoint do laudo e a camada jurídica nunca trafega até ele.
+# ═══════════════════════════════════════════════════════════════════════════
+
+AVISO_LAUDO = (
+    "Este documento reúne CONSTATAÇÕES TÉCNICAS sobre a instrução do processo "
+    "administrativo, apuradas a partir das peças analisadas e de bases oficiais "
+    "públicas. Não constitui parecer jurídico, não qualifica as constatações como "
+    "nulidades e não avalia chances de êxito — essa leitura é atividade privativa "
+    "de advogado (Lei 8.906/94, art. 1º) e cabe ao profissional que o interessado "
+    "vier a constituir."
+)
+
+
+def laudo_tecnico(auditoria: dict) -> dict:
+    """Camada do consumidor final: o que foi verificado e o que se constatou."""
+    itens, _, mods = _indices()
+
+    achados = []
+    for f in auditoria.get("falhas", []):
+        it = itens.get(f["id"])
+        if not it:
+            continue
+        t = it.get("tecnico", {})
+        achados.append({
+            "id": it["id"],
+            "modulo": mods[it["modulo"]].get("titulo_tecnico") or mods[it["modulo"]]["titulo"],
+            "constatacao": t.get("titulo", it["titulo"]),
+            "verificacao_realizada": t.get("verificacao", it["pergunta"]),
+            "gravidade_tecnica": t.get("gravidade"),
+            "providencia_tecnica": t.get("providencia_tecnica"),
+        })
+
+    ordem = {"DETERMINANTE": 0, "RELEVANTE": 1, "ACESSORIO": 2}
+    achados.sort(key=lambda a: (ordem.get(a["gravidade_tecnica"], 9), a["id"]))
+    r = auditoria.get("resumo", {})
+
+    return {
+        "tipo": "laudo_tecnico",
+        "itens_verificados": r.get("falhas", 0) + r.get("conformes", 0),
+        "itens_no_protocolo": auditoria.get("itens_no_catalogo"),
+        "conformes": r.get("conformes", 0),
+        "nao_conformes": r.get("falhas", 0),
+        "nao_aplicaveis": r.get("na", 0),
+        "distribuicao_por_gravidade": {
+            "determinante": sum(1 for a in achados if a["gravidade_tecnica"] == "DETERMINANTE"),
+            "relevante": sum(1 for a in achados if a["gravidade_tecnica"] == "RELEVANTE"),
+            "acessorio": sum(1 for a in achados if a["gravidade_tecnica"] == "ACESSORIO"),
+        },
+        "achados": achados,
+        "indice_de_inconformidade": auditoria.get("score"),
+        "metodologia": (
+            "Protocolo de verificação documental e metrológica aplicado sobre as peças do "
+            "processo. Cada item recebe peso uniforme por gravidade técnica "
+            "(determinante 10, relevante 7, acessório 4). O índice de inconformidade é a "
+            "razão entre o peso das não conformidades e o peso do que foi efetivamente "
+            "verificado — não é probabilidade de resultado."
+        ),
+        "aviso": AVISO_LAUDO,
+    }
+
+
+def anexo_juridico(auditoria: dict) -> dict:
+    """Camada do advogado: qualificação, teses, fundamentos e taxas."""
+    itens, _, _ = _indices()
+
+    encaminhamentos = []
+    for f in auditoria.get("falhas", []):
+        it = itens.get(f["id"])
+        if not it:
+            continue
+        j = it.get("juridico", {})
+        if j.get("qualificacao") or j.get("encaminhamento_juridico"):
+            encaminhamentos.append({
+                "id": it["id"],
+                "constatacao": it["titulo"],
+                "qualificacao": j.get("qualificacao"),
+                "encaminhamento": j.get("encaminhamento_juridico"),
+                "teses": j.get("teses", []),
+            })
+
+    return {
+        "tipo": "anexo_juridico",
+        "destinatario": "Advogado constituído pelo interessado — ou uso interno de priorização.",
+        "teses_acionaveis": auditoria.get("teses_acionaveis", []),
+        "encaminhamentos": encaminhamentos,
+        "exposicao_financeira": auditoria.get("exposicao_financeira"),
+        "aviso": (
+            "As taxas de êxito são indicativas, extraídas do acervo ATLAS FORENSE e do "
+            "ATLAS-IA, e carecem de reconferência contra as fontes primárias (TCU, IBAMA, "
+            "PGFN). Não constituem previsão de resultado. Onde as fontes divergem, ambos os "
+            "valores estão registrados. Material de apoio: não substitui a análise do "
+            "advogado responsável."
+        ),
     }
