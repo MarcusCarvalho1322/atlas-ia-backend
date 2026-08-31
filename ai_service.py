@@ -12,6 +12,7 @@ literalmente do código React já existente — nenhuma tese jurídica nova foi
 adicionada aqui, só o encanamento mudou de lugar.
 """
 import os
+from datetime import date
 from anthropic import Anthropic
 
 ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY", "")
@@ -112,6 +113,10 @@ def _score_texto(audit: dict | None) -> str:
         cobertura = (f" Foram efetivamente verificados {avaliado} de {total} pontos "
                      f"do catálogo — o índice se refere só a essa parcela.")
     return (
+        f"DATA DE HOJE: {date.today().isoformat()}. Use esta data como única "
+        f"referência temporal. Não presuma outra data corrente e não classifique "
+        f"nenhuma data do processo como futura ou impossível sem compará-la a "
+        f"esta.\n"
         f"ÍNDICE DE INCONFORMIDADE: {score} em 100.\n"
         f"COMO LER: é o percentual do peso avaliado que apresentou não "
         f"conformidade. QUANTO MAIOR, mais vícios o processo tem e mais forte "
