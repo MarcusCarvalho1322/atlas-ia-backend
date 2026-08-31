@@ -100,9 +100,23 @@ def executar_auditoria(respostas: dict[str, str], valor_multa=None) -> dict:
                             "na": 0, "peso_falha": 0, "peso_avaliado": 0}
                   for m in cat["modulos"]}
 
+    # Respostas que o motor não soube ler. Antes eram descartadas em silêncio:
+    # um "sim"/"nao" no lugar de "ok"/"fail", ou um id de item digitado errado,
+    # produzia um laudo perfeitamente formado com ZERO não conformidades — e
+    # nada na resposta denunciava que as respostas tinham sido jogadas fora.
+    # Num documento que vai para o cliente esse silêncio é o pior defeito
+    # possível, porque o erro se parece exatamente com um resultado limpo.
+    VOCABULARIO = ("ok", "fail", "na")
+    ids_desconhecidos: list[str] = []
+    valores_invalidos: list[dict] = []
+
     for item_id, resp in (respostas or {}).items():
         it = itens.get(item_id)
         if not it:
+            ids_desconhecidos.append(item_id)
+            continue
+        if resp not in VOCABULARIO:
+            valores_invalidos.append({"id": item_id, "valor_recebido": resp})
             continue
         bloco = por_modulo[it["modulo"]]
         if resp == "fail":
@@ -153,6 +167,15 @@ def executar_auditoria(respostas: dict[str, str], valor_multa=None) -> dict:
         "pontuacao_maxima": total,
         "itens_respondidos": len(falhas) + len(conformes) + len(na),
         "itens_no_catalogo": len(itens),
+        # Sempre presente. Quando não está vazio, o resultado acima está
+        # incompleto e NÃO deve ser entregue como laudo sem antes corrigir a
+        # origem das respostas.
+        "respostas_ignoradas": {
+            "total": len(ids_desconhecidos) + len(valores_invalidos),
+            "ids_fora_do_catalogo": ids_desconhecidos,
+            "valores_fora_do_vocabulario": valores_invalidos,
+            "vocabulario_aceito": list(VOCABULARIO),
+        },
         "resumo": {
             "falhas": len(falhas), "conformes": len(conformes), "na": len(na),
             "criticas": sum(1 for i in falhas if i["risco"] == "CRITICO"),
@@ -245,6 +268,10 @@ def laudo_tecnico(auditoria: dict) -> dict:
             "verificado — não é probabilidade de resultado."
         ),
         "aviso": AVISO_LAUDO,
+        # Repassado da auditoria: se houver resposta descartada, o laudo está
+        # incompleto e quem o consome precisa saber ANTES de imprimir.
+        "respostas_ignoradas": auditoria.get("respostas_ignoradas"),
+        "laudo_integro": not (auditoria.get("respostas_ignoradas") or {}).get("total"),
     }
 
 
