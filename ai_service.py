@@ -86,6 +86,43 @@ def _nulidades_texto(audit: dict | None) -> str:
                      for n in antigas)
 
 
+def _score_texto(audit: dict | None) -> str:
+    """
+    Renderiza o score COM a direção da escala e com a classificação do motor.
+
+    O número sozinho engana. Neste motor o score é o percentual do PESO
+    AVALIADO que apresentou não conformidade: 12 significa processo quase
+    íntegro (defesa fraca) e 80 significa processo cheio de vícios (defesa
+    forte) — o oposto da leitura escolar de "12/100 = reprovado".
+
+    Verificado em produção: passando apenas "SCORE: 12/100", o modelo leu como
+    nota de reprovação e abriu o diagnóstico com "CASO GRAVÍSSIMO COM
+    VIABILIDADE DEFENSIVA EXCEPCIONAL — Grau de Certeza: 95%", exatamente o
+    contrário do que a auditoria havia concluído ("BAIXO POTENCIAL"). Num
+    documento que orienta decisão de litigar sobre milhões, essa inversão é
+    inaceitável — daí a escala vir escrita por extenso junto do número.
+    """
+    audit = audit or {}
+    score = audit.get("score", 0)
+    nivel = audit.get("nivel") or "não classificado"
+    avaliado = audit.get("peso_avaliado")
+    total = audit.get("pontuacao_maxima")
+    cobertura = ""
+    if avaliado and total:
+        cobertura = (f" Foram efetivamente verificados {avaliado} de {total} pontos "
+                     f"do catálogo — o índice se refere só a essa parcela.")
+    return (
+        f"ÍNDICE DE INCONFORMIDADE: {score} em 100.\n"
+        f"COMO LER: é o percentual do peso avaliado que apresentou não "
+        f"conformidade. QUANTO MAIOR, mais vícios o processo tem e mais forte "
+        f"tende a ser a defesa; QUANTO MENOR, mais íntegro o processo e mais "
+        f"frágil a defesa. NÃO é nota escolar.{cobertura}\n"
+        f"CLASSIFICAÇÃO DA AUDITORIA: {nivel}\n"
+        f"Respeite esta classificação. Não a contrarie no veredito e não "
+        f"declare grau de certeza que ela não sustente."
+    )
+
+
 def gerar_diagnostico(form_data: dict, audit_result: dict | None) -> str:
     user_prompt = f"""Com base nos dados do processo e resultado da auditoria abaixo, gere um DIAGNÓSTICO ESTRATÉGICO COMPLETO.
 
@@ -103,7 +140,7 @@ DADOS DO PROCESSO:
 NULIDADES IDENTIFICADAS:
 {_nulidades_texto(audit_result)}
 
-SCORE: {(audit_result or {}).get('score', 0)}/100
+{_score_texto(audit_result)}
 
 GERE COM ESTAS 6 SEÇÕES:
 ## 🎯 VEREDITO ESTRATÉGICO
@@ -133,7 +170,7 @@ def gerar_peca(peca_id: int, form_data: dict, audit_result: dict | None) -> str:
         f"Infração: {form_data.get('tipoInfracao')}, Artigo: {form_data.get('artigo6514') or '?'}, "
         f"Fase: {form_data.get('fase')}, Bioma: {form_data.get('bioma')}, Área: {form_data.get('areaHa') or '?'} ha"
     )
-    base = f"DADOS: {dados}\nNULIDADES:\n{nuls_txt}\nSCORE: {(audit_result or {}).get('score', 0)}/100\n\n"
+    base = f"DADOS: {dados}\nNULIDADES:\n{nuls_txt}\n{_score_texto(audit_result)}\n\n"
     user_prompt = base + PECAS_PROMPTS[peca_id]
 
     resp = _get_client().messages.create(
