@@ -26,7 +26,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from db import Base, engine, get_db, SessionLocal
+from db import Base, engine, get_db, SessionLocal, descrever_banco
 from models import Caso, Prospecto
 import geo_service
 import ai_service
@@ -65,6 +65,9 @@ def root():
         "checks": {
             "anthropic_key_set": bool(ai_service.ANTHROPIC_API_KEY),
             "auth_required": bool(APP_API_TOKEN),
+            # Sem isto nao ha como distinguir, de fora, um Postgres vinculado
+            # de um SQLite efemero: os dois respondem 200 em tudo.
+            "banco": descrever_banco(),
         },
     }
 
