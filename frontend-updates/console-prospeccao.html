@@ -138,7 +138,12 @@ function salvarCfg(){
   carregar();
 }
 function headers(){ const {tok}=cfg(); return tok?{Authorization:'Bearer '+tok}:{}; }
+// Totais e somatorios: centavos so poluiriam. Arredondar aqui e inofensivo.
 function brl(v){ return v==null?'—':'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:0,maximumFractionDigits:0}); }
+// Valor de UMA multa: exato, com centavos. O IBAMA publica 302746,89 e o
+// arredondamento mostrava 302.747 - um valor legal exibido para mais, ainda
+// que por 11 centavos. Numero de multa e cifra juridica, nao estimativa.
+function brlExato(v){ return v==null?'—':'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function erro(m){ $('#erro').innerHTML = m ? `<div class="erro">${m}</div>` : ''; }
 function aviso(m){ $('#erro').innerHTML = m ? `<div class="aviso">${m}</div>` : ''; }
 
@@ -289,7 +294,7 @@ function render(){
     return `<tr>
       <td class="mono">${c.num_auto}${c.processo?`<div class="sinal">${c.processo}</div>`:''}</td>
       <td>${c.uf||'—'} · ${c.municipio||'—'}<div class="sinal">${c.bioma||''} ${c.tipo_infracao?'· '+c.tipo_infracao:''}</div></td>
-      <td class="num">${brl(c.valor)}</td>
+      <td class="num">${brlExato(c.valor)}</td>
       <td class="num">${prazo}</td>
       <td style="min-width:280px">${sinais||'<span class="sinal">—</span>'}</td>
       <td class="mono">${c.documento_mascarado||'—'}<div class="sinal">${c.tipo_pessoa||''}</div></td>
