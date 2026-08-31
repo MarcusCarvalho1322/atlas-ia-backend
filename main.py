@@ -65,8 +65,8 @@ def root():
         "checks": {
             "anthropic_key_set": bool(ai_service.ANTHROPIC_API_KEY),
             "auth_required": bool(APP_API_TOKEN),
-            # Sem isto nao ha como distinguir, de fora, um Postgres vinculado
-            # de um SQLite efemero: os dois respondem 200 em tudo.
+            # Sem isto não há como distinguir, de fora, um Postgres vinculado
+            # de um SQLite efêmero: os dois respondem 200 em tudo.
             "banco": descrever_banco(),
         },
     }

@@ -20,6 +20,7 @@ resultados — por isso a ordem certa está fixada nas funções abaixo.
 """
 from datetime import date
 from typing import Optional
+import unicodedata
 import httpx
 
 WFS_BASE = "https://terrabrasilis.dpi.inpe.br/geoserver/ows"
@@ -36,6 +37,32 @@ BIOME_LAYERS = {
 
 # ~0.01 grau ≈ 1,1 km no equador — tolerância para RVs com GPS impreciso.
 RAIO_GRAUS_PADRAO = 0.01
+
+
+def _achatar(texto: str) -> str:
+    """Minúsculas, sem acento, sem espaço duplicado — só para comparar."""
+    sem_acento = unicodedata.normalize("NFKD", texto).encode("ascii", "ignore").decode()
+    return " ".join(sem_acento.lower().split())
+
+
+def _chave_bioma(bruto: Optional[str]) -> Optional[str]:
+    """
+    Casa o nome do bioma, escrito de qualquer forma, com a chave de BIOME_LAYERS.
+
+    Isto existe porque as duas pontas do sistema grafam o mesmo bioma de modos
+    diferentes: o formulário do ATLAS-IA grava "Amazônia" com acento, enquanto a
+    coluna BIOMA do CSV do IBAMA devolve "Amazonia" sem acento. Com comparação
+    literal, todo caso vindo da mineração era recusado com "bioma não
+    reconhecido" — ou seja, o cruzamento com satélite falhava em 100% das vezes
+    justamente no fluxo automático, e o erro parecia problema de dado do IBAMA.
+    """
+    if not bruto:
+        return None
+    alvo = _achatar(bruto)
+    for chave in BIOME_LAYERS:
+        if _achatar(chave) == alvo:
+            return chave
+    return None
 
 
 async def _wfs_get_features(type_name: str, lat: float, lon: float, raio_graus: float) -> list[dict]:
@@ -101,12 +128,13 @@ async def verificar_coordenada(
     de data. A leitura jurídica continua sendo do advogado responsável pelo
     caso (mesma fronteira já adotada no restante do ATLAS-IA e do AGROTAX).
     """
-    layers = BIOME_LAYERS.get(bioma)
-    if not layers:
+    bioma = _chave_bioma(bioma)
+    if not bioma:
         return {
             "ok": False,
-            "erro": f"Bioma '{bioma}' não reconhecido. Valores aceitos: {list(BIOME_LAYERS.keys())}",
+            "erro": f"Bioma não reconhecido. Valores aceitos: {list(BIOME_LAYERS.keys())}",
         }
+    layers = BIOME_LAYERS[bioma]
 
     alertas: list[dict] = []
     avisos: list[str] = []
