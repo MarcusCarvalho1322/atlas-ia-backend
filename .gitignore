@@ -1,4 +1,24 @@
-
+# Base do IBAMA baixada em tempo de execucao - nunca versionar
 dados_ibama/
 *.csv
 *.zip
+
+# Banco SQLite local. So existe quando se roda sem DATABASE_URL; em producao
+# o banco e o PostgreSQL do Render. Versionar arquivo de banco e caminho curto
+# para publicar dado de cliente sem perceber.
+*.db
+*.sqlite
+*.sqlite3
+
+# Bytecode do Python - gerado pela maquina, envelhece e confunde o deploy
+__pycache__/
+*.py[cod]
+
+# Segredos. So o .env.example vai para o Git.
+.env
+.env.*
+!.env.example
+
+# Ambientes virtuais
+.venv/
+venv/
