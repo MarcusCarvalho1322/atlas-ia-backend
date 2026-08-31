@@ -201,12 +201,17 @@ def territorio(tipo_pessoa: str = "PF", topo: int = 50,
 
 @app.post("/api/prospeccao/rotina-diaria")
 def executar_rotina(
-    ano: Optional[int] = None, baixar: bool = True,
+    ano: Optional[int] = None, baixar: bool = True, topo: int = 20,
     authorization: Optional[str] = Header(None), db: Session = Depends(get_db),
 ):
     """
     Baixa a base do dia, concilia com a carteira e devolve o boletim.
-    Ponto único de entrada para o agendamento (cron do Railway ou tarefa externa).
+    Ponto único de entrada para o agendamento e para o botão do console.
+
+    `topo` limita quantos casos vêm em CADA lista do boletim — os contadores
+    seguem completos. Sem repassar este parâmetro, o console recebia 20 casos
+    logo depois de minerar enquanto o contador continuava marcando 133, e a
+    lista encolhia sem nenhuma explicação na tela.
     """
     _checar_auth(authorization)
     try:
@@ -216,7 +221,7 @@ def executar_rotina(
     except Exception as e:
         raise HTTPException(502, f"Falha na rotina de mineração: {e}")
     _cache_casos.clear()
-    return {"sincronizacao": sinc, "boletim": rotina.boletim(db)}
+    return {"sincronizacao": sinc, "boletim": rotina.boletim(db, topo=topo)}
 
 
 @app.get("/api/prospeccao/boletim")
