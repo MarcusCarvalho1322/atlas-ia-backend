@@ -23,6 +23,7 @@ from typing import Optional, Any
 
 from fastapi import FastAPI, HTTPException, Header, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
@@ -37,8 +38,38 @@ import enriquecimento
 
 Base.metadata.create_all(bind=engine)
 
-APP_API_TOKEN = os.getenv("ATLAS_API_TOKEN", "")  # opcional, mas recomendado — mesmo padrão do browser-use-server
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
+
+
+# ─────────────────────── Acesso: uma senha POR PESSOA ───────────────────────
+#
+# ATLAS_API_TOKEN     — senha única, herdada. Continua valendo (nada quebra).
+# ATLAS_API_TOKENS    — uma por pessoa, no formato  nome:senha,nome:senha
+#
+# Uma senha compartilhada por toda a equipe tem dois defeitos que só aparecem
+# quando já é tarde: não há como saber QUEM fez o quê, e tirar o acesso de uma
+# pessoa obriga a trocar a senha de todo mundo. Com senha nomeada, revogar é
+# apagar uma entrada — os demais nem percebem.
+APP_API_TOKEN = os.getenv("ATLAS_API_TOKEN", "")
+
+
+def _carregar_tokens() -> dict[str, str]:
+    """Mapa senha -> nome de quem a usa. O nome nunca sai em resposta de erro."""
+    mapa: dict[str, str] = {}
+    if APP_API_TOKEN:
+        mapa[APP_API_TOKEN] = "senha-mestra"
+    for parte in os.getenv("ATLAS_API_TOKENS", "").split(","):
+        parte = parte.strip()
+        if not parte or ":" not in parte:
+            continue
+        nome, _, senha = parte.partition(":")
+        nome, senha = nome.strip(), senha.strip()
+        if nome and senha:
+            mapa[senha] = nome
+    return mapa
+
+
+TOKENS = _carregar_tokens()
 
 app = FastAPI(title="ATLAS-IA · atlas-geo")
 
@@ -50,11 +81,22 @@ app.add_middleware(
 )
 
 
-def _checar_auth(authorization: Optional[str]):
-    if not APP_API_TOKEN:
-        return  # auth desligada — ok para teste, não recomendado em produção
-    if not authorization or not authorization.startswith("Bearer ") or authorization[7:].strip() != APP_API_TOKEN:
+def _checar_auth(authorization: Optional[str]) -> str:
+    """
+    Valida a senha e devolve o nome de quem entrou.
+
+    A mensagem de erro é sempre a mesma, sem dizer se a senha existe, expirou ou
+    está só malformada — informação de a mais aqui só ajuda quem está tentando
+    adivinhar.
+    """
+    if not TOKENS:
+        return "sem-autenticacao"  # só para teste local; em produção nunca
+    if not authorization or not authorization.startswith("Bearer "):
         raise HTTPException(401, "Token inválido ou ausente")
+    nome = TOKENS.get(authorization[7:].strip())
+    if not nome:
+        raise HTTPException(401, "Token inválido ou ausente")
+    return nome
 
 
 # ───────────────────────── saúde / info ─────────────────────────
@@ -64,7 +106,8 @@ def root():
         "service": "ATLAS-IA · atlas-geo",
         "checks": {
             "anthropic_key_set": bool(ai_service.ANTHROPIC_API_KEY),
-            "auth_required": bool(APP_API_TOKEN),
+            "auth_required": bool(TOKENS),
+            "acessos_configurados": len(TOKENS),
             # Sem isto não há como distinguir, de fora, um Postgres vinculado
             # de um SQLite efêmero: os dois respondem 200 em tudo.
             "banco": descrever_banco(),
@@ -75,6 +118,28 @@ def root():
 @app.get("/health")
 def health():
     return {"ok": True}
+
+
+CONSOLE_HTML = Path(__file__).parent / "frontend-updates" / "console-prospeccao.html"
+
+
+@app.get("/console")
+def console():
+    """
+    Serve o console de prospecção como página de verdade.
+
+    Antes ele era um arquivo solto no computador de uma pessoa. Para a equipe
+    usar, alguém teria de enviar o arquivo a cada um — e cada cópia envelhecia
+    sozinha, sem ninguém perceber que estava vendo uma versão antiga. Servido
+    aqui, todos abrem um endereço só e sempre a versão publicada.
+
+    A página em si não guarda segredo nenhum: o endereço e a senha são digitados
+    por quem abre e ficam no navegador dele. Sem senha válida, nenhuma rota de
+    dados responde.
+    """
+    if not CONSOLE_HTML.exists():
+        raise HTTPException(404, "Console não encontrado nesta instalação.")
+    return FileResponse(CONSOLE_HTML, media_type="text/html; charset=utf-8")
 
 
 @app.on_event("startup")
