@@ -30,6 +30,14 @@ a{color:var(--amber)}
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 
 /* ---------- ENTRADA ---------- */
+/* Esta regra tem de vir ANTES de qualquer display: o atributo hidden do HTML
+   vale por uma regra fraca do navegador ([hidden]{display:none}), e qualquer
+   seletor de id a derrota. Sem a linha abaixo, `entrada.hidden = true` era
+   obedecido no papel e ignorado na tela: a pessoa entrava, o sistema carregava
+   atrás, e ela continuava olhando para a tela de senha achando que a senha
+   estava errada. Vale para toda caixa deste arquivo que use hidden. */
+[hidden]{display:none !important}
+
 #entrada{position:fixed;inset:0;background:var(--bg);display:flex;
   align-items:center;justify-content:center;padding:24px;z-index:50}
 .porta{width:100%;max-width:380px}
