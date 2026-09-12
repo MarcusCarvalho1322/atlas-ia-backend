@@ -915,7 +915,26 @@ function renderLaudo(){
 }
 
 // ───────────────────────── partida ─────────────────────────
+// Senha vinda no endereço, depois do "#". Existe para que a equipe entre com
+// um duplo clique, sem colar nada: cada pessoa recebe o seu próprio atalho.
+//
+// Por que depois do "#" e não com "?": o que vem depois do "#" NUNCA é enviado
+// ao servidor. Não entra no log do Render, não entra no cabeçalho Referer, não
+// vaza para terceiros. É o mesmo mecanismo que o OAuth usa. E, mesmo assim, a
+// senha é apagada do endereço no instante seguinte, para não ficar visível na
+// barra nem no histórico de quem está do lado.
+function senhaDoEndereco(){
+  const h = location.hash || '';
+  const m = h.match(/[#&]k=([^&]+)/);
+  if(!m) return '';
+  history.replaceState(null, '', location.pathname + location.search);
+  try { return limparSenha(decodeURIComponent(m[1])); }
+  catch(e){ return limparSenha(m[1]); }
+}
+
 window.addEventListener('DOMContentLoaded', () => {
+  const doEndereco = senhaDoEndereco();
+  if(doEndereco) localStorage.atlasTok = doEndereco;
   const {api:a, tok} = cfg();
 
   // Quando a página é servida pelo próprio motor — que é como a equipe entra,

@@ -12,6 +12,14 @@ docs/ACESSOS-EQUIPE.txt
 *ACESSOS*
 *SENHAS*
 
+# Atalhos de entrada da equipe. Cada .url carrega a senha de uma pessoa
+# embutida no endereço, depois do "#". São arquivos de conveniência, gerados
+# localmente por ferramentas\gerar-atalhos-da-equipe.ps1 a partir do cofre —
+# regeneráveis a qualquer momento, e portanto sem nenhuma razão para existirem
+# no repositório.
+atalhos-da-equipe/
+*.url
+
 # ─────────────────── DADOS BAIXADOS EM EXECUÇÃO ───────────────────
 # A base do IBAMA é rebaixada sozinha a cada rodada. Versionar isso
 # encheria o repositório de centenas de MB que envelhecem em 24h.
