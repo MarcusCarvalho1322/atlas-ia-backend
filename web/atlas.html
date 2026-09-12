@@ -222,6 +222,13 @@ let LAUDO = null;
 let ABA = 'urgencia';     // aba dentro da Carteira
 let FECHADOS = {};        // módulos recolhidos na Análise
 
+// O auto que a tela de Análise está examinando. Sem isto, o laudo saía
+// sempre com "Sem número de auto informado": a Carteira mostrava o caso e a
+// Análise não sabia dele — os dois módulos não se falavam. A resposta do
+// servidor é a fonte: nada aqui é digitado de novo nem inferido.
+let CASO_EM_ANALISE = null;
+let CASOS_VISIVEIS = [];  // as linhas da Carteira como estão na tela agora
+
 const SECOES = [
   ['urgencia',                 'Prazo vencendo'],
   ['novos_hoje',               'Novos hoje'],
@@ -476,6 +483,11 @@ function renderCarteira(){
     .filter(c => !uf || (c.uf||'') === uf)
     .filter(c => (c.valor||0) >= vmin);
 
+  // A lista visível vira o índice das ações. Passar o caso por POSIÇÃO evita
+  // ter de embutir o número do auto dentro de um onclick — números de auto
+  // trazem barra e ponto, que quebram seletor de CSS sem avisar.
+  CASOS_VISIVEIS = casos;
+
   $('#contagem').textContent = `— exibindo ${casos.length} de ${carregados}`
     + (carregados < total ? ` (${total} no total)` : '');
 
@@ -488,7 +500,7 @@ function renderCarteira(){
       + `<button onclick="limparFiltros()">Limpar filtros</button></div>`
     : '';
 
-  $('#linhas').innerHTML = casos.length ? casos.map(c => {
+  $('#linhas').innerHTML = casos.length ? casos.map((c, i) => {
     const d = c.dias_para_defesa;
     const prazo = d==null ? '<span class="mono" style="color:var(--ink-faint)">—</span>'
       : d < 0 ? '<span class="pill p-info">vencido</span>'
@@ -506,12 +518,13 @@ function renderCarteira(){
           <div class="sinal mono">${esc(c.tipo_pessoa||'')}</div></td>
       <td><span class="pill ${c.status==='cliente'?'p-ok':c.status==='descartado'?'p-info':'p-amber'}">${esc(c.status)}</span></td>
       <td><div class="acoes">
+            <button class="primary" onclick="analisarCaso(${i})">Analisar</button>
             <button onclick="mover('${esc(c.num_auto)}','selecionado')">Selecionar</button>
             <button onclick="mover('${esc(c.num_auto)}','contatado')">Contatado</button>
             <button onclick="mover('${esc(c.num_auto)}','descartado')">Descartar</button>
-            <button onclick="verContato('${esc(c.num_auto)}')">Contato</button>
+            <button onclick="verContato(${i})">Contato</button>
           </div>
-          <div id="ct-${esc(c.num_auto)}"></div></td>
+          <div id="ct-${i}"></div></td>
     </tr>`;
   }).join('') : '<tr><td colspan="8" class="vazio">Nenhum caso com estes filtros.</td></tr>';
 
@@ -533,12 +546,13 @@ async function mover(numAuto, status){
   }catch(e){ erro('Não consegui mover o caso: ' + esc(e.message)); }
 }
 
-async function verContato(numAuto){
-  const alvo = $('#ct-'+numAuto);
-  if(!alvo) return;
+async function verContato(i){
+  const caso = CASOS_VISIVEIS[i];
+  const alvo = document.getElementById('ct-'+i);
+  if(!caso || !alvo) return;
   alvo.innerHTML = '<div class="sinal">consultando a Receita Federal…</div>';
   try{
-    const r = await api('/api/prospeccao/'+encodeURIComponent(numAuto)+'/contato');
+    const r = await api('/api/prospeccao/'+encodeURIComponent(caso.num_auto)+'/contato');
     const c = r.contato || {};
     if(!c.disponivel){
       alvo.innerHTML = `<div class="sinal">${esc(c.motivo||c.erro||'Sem fonte pública de contato para pessoa física.')}</div>`;
@@ -552,6 +566,28 @@ async function verContato(numAuto){
       <span style="color:var(--ink-faint)">${esc(c.fonte||'')}</span>
     </div>`;
   }catch(e){ alvo.innerHTML = `<div class="sinal" style="color:var(--urgent)">${esc(e.message)}</div>`; }
+}
+
+// Leva o auto da Carteira para a Análise do Caso. As respostas pertencem a um
+// auto específico: arrastá-las de um caso para outro produziria um laudo com
+// aparência normal e conteúdo errado — o pior tipo de falha neste sistema.
+function analisarCaso(i){
+  const c = CASOS_VISIVEIS[i];
+  if(!c) return;
+  const respondidos = Object.keys(RESPOSTAS).length;
+  const outro = CASO_EM_ANALISE && CASO_EM_ANALISE.num_auto !== c.num_auto;
+  if(respondidos && outro &&
+     !confirm(`Você tem ${respondidos} item(ns) respondidos para o auto `
+            + `${CASO_EM_ANALISE.num_auto}. Abrir o auto ${c.num_auto} apaga `
+            + `essas respostas. Deseja continuar?`)) return;
+  if(outro || !CASO_EM_ANALISE){ RESPOSTAS = {}; LAUDO = null; }
+  CASO_EM_ANALISE = c;
+  irPara('analise');
+}
+
+function largarCaso(){
+  CASO_EM_ANALISE = null; RESPOSTAS = {}; LAUDO = null;
+  telaAnalise();
 }
 
 // ───────────────────────── 5. TERRITÓRIO ─────────────────────────
@@ -607,19 +643,46 @@ async function telaAnalise(){
     </div>`;
   }).join('');
 
+  // O auto vem da Carteira quando o usuário clicou em "Analisar". Os valores
+  // são os do registro público, não digitados de novo: o valor da multa é
+  // formatado em pt-BR porque é assim que o campo é lido de volta na hora de
+  // gerar o laudo.
+  const x = CASO_EM_ANALISE || {};
+  const vTxt = (x.valor == null) ? ''
+    : Number(x.valor).toLocaleString('pt-BR', {minimumFractionDigits:2, maximumFractionDigits:2});
+
+  const cabecalhoCaso = CASO_EM_ANALISE ? `
+    <div class="filtrado" style="margin-bottom:16px">
+      <span>Analisando o auto <b class="mono">${esc(x.num_auto)}</b>
+        — ${esc(x.uf||'—')} · ${esc(x.municipio||'—')} · multa ${brlExato(x.valor)}
+        ${x.dias_para_defesa != null ? ` · prazo de defesa: ${x.dias_para_defesa < 0
+            ? 'vencido' : x.dias_para_defesa + ' dia(s)'}` : ''}
+        ${(x.sinais||[]).length ? `<br><span style="font-size:12.5px;color:var(--ink-dim)">Sinais do registro público: `
+            + (x.sinais||[]).map(s => esc(s.constatacao)).join(' · ') + '</span>' : ''}
+      </span>
+      <button onclick="largarCaso()">Analisar outro auto</button>
+    </div>` : `
+    <div class="aviso" style="margin-bottom:16px">
+      Nenhum auto carregado. Você pode preencher a identificação à mão abaixo,
+      ou abrir a <b>Carteira</b> e clicar em <b>Analisar</b> num caso — assim o
+      número do auto, a multa e o local vêm do registro do IBAMA, sem redigitação.
+    </div>`;
+
   $('#tela').innerHTML = `
     <h2 class="titulo">Análise do Caso</h2>
     <p class="lede">Protocolo de ${c.itens.length} itens em ${c.modulos.length} módulos.
        Responda o que conseguir conferir nas peças do processo e deixe em branco
        o que não souber — item não respondido não entra na conta.</p>
 
+    ${cabecalhoCaso}
+
     <div class="painel">
       <h3>Identificação</h3>
       <div class="grade">
-        <div><label>Número do auto</label><input id="aAuto" placeholder="opcional"></div>
-        <div><label>Valor da multa (R$)</label><input id="aValor" placeholder="220000"></div>
-        <div><label>UF</label><input id="aUf" placeholder="MT" size="3"></div>
-        <div><label>Município</label><input id="aMun" placeholder="opcional"></div>
+        <div><label>Número do auto</label><input id="aAuto" placeholder="opcional" value="${esc(x.num_auto||'')}"></div>
+        <div><label>Valor da multa (R$)</label><input id="aValor" placeholder="220000" value="${esc(vTxt)}"></div>
+        <div><label>UF</label><input id="aUf" placeholder="MT" size="3" value="${esc(x.uf||'')}"></div>
+        <div><label>Município</label><input id="aMun" placeholder="opcional" value="${esc(x.municipio||'')}"></div>
       </div>
     </div>
 
@@ -634,6 +697,15 @@ async function telaAnalise(){
     ${blocos}`;
 
   atualizarContagens();
+
+  // A tela é reconstruída inteira a cada re-render. Sem restaurar as marcas,
+  // o usuário volta e vê os itens em branco mesmo já tendo respondido — e
+  // responde de novo, sobre um laudo que já contava aquelas respostas.
+  for(const id of Object.keys(RESPOSTAS)){
+    const btn = document.getElementById(`b-${id}-${RESPOSTAS[id]}`);
+    if(btn) btn.className = 'sel-' + RESPOSTAS[id];
+  }
+  if(LAUDO) renderLaudo();
 }
 
 function itemHtml(it){
@@ -684,12 +756,7 @@ function atualizarContagens(){
 
 function marcarTodos(v){
   for(const it of CATALOGO.itens) RESPOSTAS[it.id] = v;
-  telaAnalise().then(() => {
-    for(const id of Object.keys(RESPOSTAS)){
-      const b = document.getElementById(`b-${id}-${RESPOSTAS[id]}`);
-      if(b) b.className = 'sel-'+RESPOSTAS[id];
-    }
-  });
+  telaAnalise();   // a própria telaAnalise restaura as marcas
 }
 
 function limparRespostas(){
@@ -719,6 +786,9 @@ function renderLaudo(){
   const l = LAUDO; if(!l) return;
   const g = l.distribuicao_por_gravidade || {};
   const auto = $('#aAuto') ? $('#aAuto').value.trim() : '';
+  const uf   = $('#aUf')   ? $('#aUf').value.trim()   : '';
+  const mun  = $('#aMun')  ? $('#aMun').value.trim()  : '';
+  const local = [mun, uf].filter(Boolean).join('/');
 
   const alerta = (l.laudo_integro === false) ? `
     <div class="erro">
@@ -741,7 +811,8 @@ function renderLaudo(){
         <div>
           <div class="mono" style="font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-faint)">Laudo técnico</div>
           <div style="font-size:18px;font-weight:700;margin-top:3px">
-            ${auto ? 'Auto '+esc(auto) : 'Sem número de auto informado'}</div>
+            ${auto ? 'Auto de infração nº '+esc(auto) : 'Sem número de auto informado'}</div>
+          ${local ? `<div class="sinal" style="margin-top:2px">${esc(local)}</div>` : ''}
         </div>
         <div style="margin-left:auto;text-align:right">
           <div class="mono" style="font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-faint)">Índice de inconformidade</div>
