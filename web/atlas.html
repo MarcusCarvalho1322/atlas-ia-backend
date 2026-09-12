@@ -162,12 +162,15 @@ tr:hover td{background:var(--surface-2)}
     <div class="marca">ATLAS<span>.</span></div>
     <div class="sub">Inteligência Forense</div>
 
-    <label for="pApi">Endereço do servidor</label>
-    <input id="pApi" value="https://atlas-geo.onrender.com" spellcheck="false">
+    <div id="linhaApi">
+      <label for="pApi">Endereço do servidor</label>
+      <input id="pApi" value="https://atlas-geo.onrender.com" spellcheck="false">
+    </div>
 
     <label for="pTok">Sua senha de acesso</label>
     <input id="pTok" type="password" placeholder="cole aqui" spellcheck="false"
-           onkeydown="if(event.key==='Enter')entrar()">
+           oninput="pistaSenha()" onkeydown="if(event.key==='Enter')entrar()">
+    <div id="pPista" class="nota" style="margin:6px 0 0"></div>
 
     <button class="primary" id="btnEntrar" onclick="entrar()">Entrar</button>
     <div id="pFalha"></div>
@@ -261,10 +264,46 @@ async function api(caminho, opt={}){
 }
 
 // ───────────────────────── entrar e sair ─────────────────────────
+
+// Colar senha é onde a entrada mais falha, e falha em silêncio. Três causas
+// reais: o arquivo de acessos traz "nome: senha" e a pessoa copia a linha
+// inteira; o texto vem de um editor ou de mensageiro e carrega espaço não
+// separavel ou caractere invisivel, que .trim() nao remove; e aspas
+// grudadas nas pontas. Nada disso aparece na tela — o campo é de senha.
+function limparSenha(bruto){
+  let s = String(bruto || '');
+  // Escritos por CODIGO do caractere de proposito: escrever o caractere
+  // invisivel aqui dentro tornaria esta linha impossivel de revisar.
+  const INVISIVEIS = [0x200B,0x200C,0x200D,0x2060,0xFEFF];
+  const ESPACOS    = [0x00A0,0x202F,0x2007,0x2009,0x200A];
+  s = Array.from(s).filter(ch => !INVISIVEIS.includes(ch.codePointAt(0)))
+                   .map(ch => ESPACOS.includes(ch.codePointAt(0)) ? ' ' : ch)
+                   .join('');
+  s = s.trim();
+  const semAspas = t => t.replace(/^["'`«»]+|["'`«»]+$/g, '').trim();
+  s = semAspas(s);
+  // "nome: senha" — corta só quando o que vem antes dos dois-pontos parece um
+  // nome E o que sobra ainda tem tamanho de senha. Sem as duas guardas, uma
+  // senha que contivesse ':' seria mutilada aqui, em silêncio.
+  const rotulo = s.match(/^([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ .'-]{0,40}):\s*(\S.*)$/);
+  if(rotulo && rotulo[2].trim().length >= 20) s = rotulo[2].trim();
+  return semAspas(s);
+}
+
+function pistaSenha(){
+  const cru = $('#pTok').value;
+  const s = limparSenha(cru);
+  const p = $('#pPista');
+  if(!s){ p.textContent = ''; return; }
+  const sujo = (s !== cru.trim());
+  p.textContent = `${s.length} caracteres`
+    + (sujo ? ' — limpei o que veio junto na colagem' : '');
+}
+
 async function entrar(){
   const b = $('#btnEntrar');
   const api_ = $('#pApi').value.trim().replace(/\/$/,'');
-  const tok  = $('#pTok').value.trim();
+  const tok  = limparSenha($('#pTok').value);
   $('#pFalha').innerHTML = '';
   if(!tok){ $('#pFalha').innerHTML = '<div class="falha">Cole a sua senha de acesso.</div>'; return; }
 
@@ -280,9 +319,22 @@ async function entrar(){
     await irPara('painel');
   }catch(e){
     localStorage.removeItem('atlasTok');
-    const m = String(e.message).startsWith('401')
-      ? 'Senha não aceita. Confira se colou a linha inteira, sem espaço sobrando.'
-      : 'Não consegui falar com o servidor: ' + esc(e.message);
+    // Um erro que não diz o que fazer é o mesmo que erro nenhum. São três
+    // situações distintas e o remédio de cada uma é diferente.
+    const msg = String(e.message);
+    let m;
+    if(msg.startsWith('401')){
+      m = `Esta senha não está cadastrada no servidor (${tok.length} caracteres `
+        + `foram enviados). Confira no arquivo <b>ACESSOS-EQUIPE.txt</b> se é a `
+        + `senha da sua linha, ou use o atalho <b>4 — ATLAS Copiar Senha</b> na `
+        + `Área de Trabalho e cole aqui com Ctrl+V.`;
+    } else if(/Failed to fetch|NetworkError|load failed/i.test(msg)){
+      m = `O servidor não respondeu. Se esta foi a primeira tentativa do dia, ele `
+        + `está acordando: espere um minuto e clique em Entrar de novo. Se `
+        + `insistir, confira a sua conexão.`;
+    } else {
+      m = 'O servidor respondeu com erro: ' + esc(msg);
+    }
     $('#pFalha').innerHTML = `<div class="falha">${m}</div>`;
   }
   b.disabled = false; b.textContent = 'Entrar';
@@ -293,6 +345,7 @@ function sair(motivo){
   $('#app').hidden = true;
   $('#entrada').hidden = false;
   $('#pTok').value = '';
+  if($('#pPista')) $('#pPista').textContent = '';
   $('#pFalha').innerHTML = motivo ? `<div class="falha">${esc(motivo)}</div>` : '';
 }
 
@@ -855,10 +908,22 @@ function renderLaudo(){
 // ───────────────────────── partida ─────────────────────────
 window.addEventListener('DOMContentLoaded', () => {
   const {api:a, tok} = cfg();
-  if(a) $('#pApi').value = a;
-  // Servido pelo próprio backend: o endereço certo é o desta página.
-  else if(location.protocol.startsWith('http')) $('#pApi').value = location.origin;
-  if(tok){ $('#pTok').value = tok; entrar(); }
+
+  // Quando a página é servida pelo próprio motor — que é como a equipe entra,
+  // por /console — o endereço NÃO é uma pergunta: é o desta página. Antes, um
+  // endereço antigo guardado no navegador (de um servidor que não existe mais)
+  // vencia o endereço certo, e a pessoa levava "não consegui falar com o
+  // servidor" sem nenhuma forma de descobrir por quê. O campo só aparece se
+  // alguém abrir o arquivo solto no disco.
+  if(location.protocol.startsWith('http')){
+    $('#pApi').value = location.origin;
+    localStorage.atlasApi = location.origin;
+    $('#linhaApi').hidden = true;
+  } else if(a){
+    $('#pApi').value = a;
+  }
+
+  if(tok){ $('#pTok').value = tok; pistaSenha(); entrar(); }
 });
 </script>
 </body>
