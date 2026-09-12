@@ -39,6 +39,7 @@ def _aplicar(p: Prospecto, c: prospeccao.Caso) -> list[str]:
         "dt_auto": c.dt_auto.isoformat() if c.dt_auto else None,
         "dt_ciencia": c.dt_ciencia.isoformat() if c.dt_ciencia else None,
         "lat": c.lat, "lon": c.lon,
+        "registro": c.registro or None,
         "sinais": [s.__dict__ for s in c.sinais],
         "prioridade": c.prioridade, "dias_para_defesa": c.dias_para_defesa,
     }

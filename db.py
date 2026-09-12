@@ -58,6 +58,47 @@ def descrever_banco() -> dict:
     }
 
 
+def garantir_colunas() -> list[str]:
+    """
+    Acrescenta colunas novas a tabelas que já existem.
+
+    `Base.metadata.create_all` cria tabelas que faltam e NÃO TOCA nas que já
+    estão lá. Quando um campo novo aparece no modelo, a tabela em produção
+    continua sem ele e toda leitura quebra com "column does not exist" — numa
+    base que já tem dez mil casos dentro, apagar e recriar não é opção.
+
+    Não se usa Alembic aqui de propósito: é uma dependência e um diretório de
+    versões inteiros para um projeto cujo esquema muda uma vez por trimestre.
+    O acréscimo abaixo é idempotente e roda na partida.
+
+    Devolve a lista do que foi efetivamente acrescentado, para a rota `/`
+    conseguir relatar. Nunca derruba o serviço: banco indisponível na partida
+    é situação transitória, e o diagnóstico dela é `descrever_banco()`.
+    """
+    acrescentadas: list[str] = []
+    # (tabela, coluna, tipo em SQL). JSON existe em Postgres e em SQLite 3.9+.
+    PENDENTES = [("prospectos", "registro", "JSON")]
+    for tabela, coluna, tipo in PENDENTES:
+        try:
+            with engine.begin() as conexao:
+                if engine.url.get_backend_name().startswith("sqlite"):
+                    existentes = {l[1] for l in conexao.execute(
+                        text(f"PRAGMA table_info({tabela})"))}
+                    if coluna in existentes:
+                        continue
+                    conexao.execute(text(
+                        f"ALTER TABLE {tabela} ADD COLUMN {coluna} {tipo}"))
+                else:
+                    conexao.execute(text(
+                        f"ALTER TABLE {tabela} ADD COLUMN IF NOT EXISTS {coluna} {tipo}"))
+                acrescentadas.append(f"{tabela}.{coluna}")
+        except Exception:
+            # Tabela ainda não criada, ou banco fora do ar. create_all cuida do
+            # primeiro caso; do segundo, quem reclama é descrever_banco().
+            pass
+    return acrescentadas
+
+
 def get_db():
     db = SessionLocal()
     try:

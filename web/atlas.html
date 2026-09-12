@@ -29,6 +29,36 @@ button:disabled{opacity:.5;cursor:not-allowed}
 a{color:var(--amber)}
 .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
 
+/* ---------- PRÉ-VERIFICAÇÃO ---------- */
+/* O item apurado precisa se distinguir do respondido à mão SEM esforço de
+   leitura: quem confere um laudo de milhões não pode ter de procurar. Daí a
+   barra lateral na linha inteira, e não só um selo discreto. */
+.pill.p-apurado{background:rgba(147,179,106,.16); color:#93b36a; border:1px solid rgba(147,179,106,.35)}
+.item.apurado{border-left:3px solid #93b36a; padding-left:11px; background:rgba(147,179,106,.05)}
+.apurado-nota{
+  margin-top:7px; font-size:12.5px; line-height:1.55; color:var(--ink-dim);
+  border-left:2px solid rgba(147,179,106,.4); padding-left:10px;
+}
+.apurado-nota .liga{
+  display:inline; background:none; border:none; padding:0 0 0 6px;
+  color:var(--amber); font-size:12.5px; text-decoration:underline; cursor:pointer;
+}
+.evid{
+  margin-top:8px; padding:9px 11px; background:var(--surface-2);
+  border:1px solid var(--line); border-radius:4px; font-size:12.5px; line-height:1.55;
+}
+.evid .et{font-weight:600; color:var(--ink); margin-bottom:5px}
+.evid .ec{display:flex; gap:9px; flex-wrap:wrap; margin-bottom:3px}
+.evid .ec .mono{color:var(--ink-faint); font-size:11px; letter-spacing:.3px; flex:0 0 auto}
+.evid .ec span:last-child{color:var(--ink-dim); word-break:break-word; min-width:0}
+.evid .el{margin-top:6px; color:var(--ink-faint); font-style:italic}
+.procedencia{
+  margin-top:20px; padding:13px 15px; border:1px dashed var(--line-strong);
+  border-radius:4px; font-size:12.5px; line-height:1.6; color:var(--ink-dim);
+}
+.procedencia b{color:var(--ink)}
+.procedencia .mono{color:var(--ink); font-size:11.5px}
+
 /* ---------- ENTRADA ---------- */
 /* Esta regra tem de vir ANTES de qualquer display: o atributo hidden do HTML
    vale por uma regra fraca do navegador ([hidden]{display:none}), e qualquer
@@ -240,6 +270,13 @@ let FECHADOS = {};        // módulos recolhidos na Análise
 // servidor é a fonte: nada aqui é digitado de novo nem inferido.
 let CASO_EM_ANALISE = null;
 let CASOS_VISIVEIS = [];  // as linhas da Carteira como estão na tela agora
+
+// Resultado da pré-verificação do auto em análise.
+// APURADOS  {id: {resposta, porque, campos}} — conta de chegada sobre o registro
+//           público. Vira resposta, mas marcada: o laudo declara a procedência.
+// EVIDENCIAS  o campo do registro ao lado da pergunta. NÃO responde nada.
+let APURADOS = {};
+let EVIDENCIAS = {};   // {id: [evidência, ...]}
 
 const SECOES = [
   ['urgencia',                 'Prazo vencendo'],
@@ -644,12 +681,41 @@ function analisarCaso(i){
             + `essas respostas. Deseja continuar?`)) return;
   if(outro || !CASO_EM_ANALISE){ RESPOSTAS = {}; LAUDO = null; }
   CASO_EM_ANALISE = c;
+  APURADOS = {}; EVIDENCIAS = {};
   irPara('analise');
 }
 
 function largarCaso(){
   CASO_EM_ANALISE = null; RESPOSTAS = {}; LAUDO = null;
+  APURADOS = {}; EVIDENCIAS = {};
   telaAnalise();
+}
+
+// Busca no servidor o que o registro público já responde deste auto.
+//
+// Nunca derruba a tela: se a pré-verificação falhar, a análise segue como
+// sempre foi — 60 itens em branco. O ganho é opcional por construção, e é
+// assim que tem de ser: um erro aqui não pode impedir alguém de trabalhar.
+async function carregarPreVerificacao(){
+  if(!CASO_EM_ANALISE) return;
+  try{
+    const r = await api('/api/prospeccao/' + encodeURIComponent(CASO_EM_ANALISE.num_auto)
+                        + '/pre-verificacao');
+    APURADOS = r.apurados || {};
+    EVIDENCIAS = {};
+    for(const e of (r.evidencias || [])){
+      (EVIDENCIAS[e.item] = EVIDENCIAS[e.item] || []).push(e);
+    }
+    // As respostas apuradas entram, mas só onde a pessoa ainda não decidiu:
+    // o juízo humano sempre vence a conta da máquina, nunca o contrário.
+    for(const [id, a] of Object.entries(APURADOS)){
+      if(RESPOSTAS[id] === undefined) RESPOSTAS[id] = a.resposta;
+    }
+  }catch(e){
+    APURADOS = {}; EVIDENCIAS = {};
+    aviso('Não consegui buscar a pré-verificação deste auto (' + esc(e.message)
+          + '). A análise segue normalmente, com todos os itens em branco.');
+  }
 }
 
 // ───────────────────────── 5. TERRITÓRIO ─────────────────────────
@@ -688,6 +754,11 @@ async function telaTerritorio(){
 
 async function telaAnalise(){
   if(!CATALOGO) CATALOGO = await api('/api/catalogo');
+  // Uma vez por auto. Chamar a cada re-render desperdiçaria consulta e, pior,
+  // reescreveria por cima de resposta que a pessoa já tivesse mudado.
+  if(CASO_EM_ANALISE && !Object.keys(APURADOS).length && !Object.keys(EVIDENCIAS).length){
+    await carregarPreVerificacao();
+  }
   const c = CATALOGO;
   const porModulo = {};
   for(const it of c.itens) (porModulo[it.modulo] = porModulo[it.modulo] || []).push(it);
@@ -774,10 +845,30 @@ function itemHtml(it){
   const t = it.tecnico || {};
   const grav = t.gravidade || it.risco || '';
   const cor = grav==='DETERMINANTE' ? 'p-urg' : grav==='RELEVANTE' ? 'p-amber' : 'p-info';
-  return `<div class="item" id="it-${esc(it.id)}">
+
+  // Selo de apurado. Fica visível de propósito: quem olha a tela tem de
+  // distinguir, sem esforço, o que a máquina contou do que alguém conferiu.
+  const ap = APURADOS[it.id];
+  const selo = ap ? ` · <span class="pill p-apurado">apurado</span>` : '';
+  const explica = ap
+    ? `<div class="apurado-nota">${esc(ap.porque)}
+         <button class="liga" onclick="soltarApurado('${esc(it.id)}')">responder eu mesmo</button>
+       </div>`
+    : '';
+
+  const evs = (EVIDENCIAS[it.id] || []).map(e => `
+    <div class="evid">
+      <div class="et">${esc(e.titulo)}</div>
+      ${(e.campos||[]).map(c => `<div class="ec"><span class="mono">${esc(c.nome)}</span>
+          <span>${esc(String(c.valor))}</span></div>`).join('')}
+      <div class="el">${esc(e.leitura||'')}</div>
+    </div>`).join('');
+
+  return `<div class="item${ap ? ' apurado' : ''}" id="it-${esc(it.id)}">
     <div class="txt">
-      <div class="id">${esc(it.id)} · <span class="pill ${cor}">${esc(grav.toLowerCase())}</span> · peso ${it.peso}</div>
+      <div class="id">${esc(it.id)} · <span class="pill ${cor}">${esc(grav.toLowerCase())}</span> · peso ${it.peso}${selo}</div>
       <div class="perg">${esc(t.verificacao || it.pergunta)}</div>
+      ${explica}${evs}
     </div>
     <div class="resp">
       <button id="b-${esc(it.id)}-ok"   onclick="responder('${esc(it.id)}','ok')">Sim</button>
@@ -787,7 +878,27 @@ function itemHtml(it){
   </div>`;
 }
 
+// Devolve o item à pessoa. O laudo deixa de declará-lo como apurado, porque
+// a partir daqui a resposta passa a ser de quem assina a análise.
+function soltarApurado(id){
+  delete APURADOS[id];
+  delete RESPOSTAS[id];
+  telaAnalise();
+}
+
 function responder(id, v){
+  // Responder à mão sobre um item apurado transfere a autoria: a máquina sai
+  // de cena e o laudo registra que foi pessoa quem conferiu.
+  if(APURADOS[id]){
+    delete APURADOS[id];
+    // Tira o selo na hora, sem reconstruir a tela: redesenhar a cada clique
+    // perderia a posição da rolagem no meio de 60 itens.
+    const linha = document.getElementById('it-' + id);
+    if(linha){
+      linha.classList.remove('apurado');
+      linha.querySelectorAll('.p-apurado, .apurado-nota').forEach(el => el.remove());
+    }
+  }
   if(RESPOSTAS[id] === v) delete RESPOSTAS[id]; else RESPOSTAS[id] = v;
   for(const k of ['ok','fail','na']){
     const b = document.getElementById(`b-${id}-${k}`);
@@ -835,7 +946,11 @@ async function gerarLaudo(){
   try{
     LAUDO = await api('/api/laudo-tecnico', {
       method:'POST', headers:{'Content-Type':'application/json'},
-      body: JSON.stringify({respostas: RESPOSTAS, valorMulta: valor})
+      // `apurados` é o que o laudo usa para declarar a procedência de cada
+      // resposta. Sem esta lista o documento afirmaria conferência humana que
+      // não houve nos itens que a máquina contou.
+      body: JSON.stringify({respostas: RESPOSTAS, valorMulta: valor,
+                            apurados: Object.keys(APURADOS)})
     });
     renderLaudo();
     $('#saidaLaudo').scrollIntoView({behavior:'smooth', block:'start'});
@@ -902,6 +1017,19 @@ function renderLaudo(){
 
       <h3 style="font-size:15px;margin:22px 0 12px">Constatações</h3>
       ${achados || '<p style="color:var(--ink-faint);font-size:13.5px">Nenhuma não conformidade entre os itens verificados.</p>'}
+
+      ${(() => {
+        const pr = l.procedencia_das_respostas;
+        if(!pr || !(pr.apurados_sobre_o_registro_publico||[]).length) return '';
+        return `<div class="procedencia">
+          <b>Procedência das respostas.</b>
+          Apurados sobre o registro público do IBAMA:
+          <span class="mono">${pr.apurados_sobre_o_registro_publico.map(esc).join(' · ')}</span>.
+          Conferidos por quem assina:
+          <span class="mono">${(pr.conferidos_por_pessoa||[]).map(esc).join(' · ') || '—'}</span>.
+          <br>${esc(pr.nota||'')}
+        </div>`;
+      })()}
 
       <div class="rodape">
         <b style="color:var(--ink-dim)">Metodologia.</b> ${esc(l.metodologia||'')}<br><br>

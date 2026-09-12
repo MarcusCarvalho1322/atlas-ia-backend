@@ -72,6 +72,18 @@ class Prospecto(Base):
     lon = Column(Float, nullable=True)
 
     sinais = Column(JSON, nullable=True)
+
+    # O recorte útil do registro público, guardado cru. A base do IBAMA tem 84
+    # colunas e o sistema lia 15; as outras carregam o enquadramento legal, a
+    # dosimetria, a forma de entrega da notificação, a área autuada e os marcos
+    # de prescrição — justamente o que o protocolo de 60 itens pergunta.
+    #
+    # Guardado como JSON, e não em colunas novas, de propósito: o dicionário de
+    # campos do IBAMA muda sem aviso, e uma coluna por campo transformaria cada
+    # mudança da fonte numa migração de banco. Aqui um campo novo simplesmente
+    # aparece no dicionário. Só chaves com valor entram — o que não veio da
+    # fonte não existe, em vez de existir vazio.
+    registro = Column(JSON, nullable=True)
     prioridade = Column(Float, index=True, default=0.0)
     dias_para_defesa = Column(Integer, nullable=True)
 

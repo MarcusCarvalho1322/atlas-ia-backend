@@ -85,6 +85,52 @@ class Sinal:
     peso: int
 
 
+# As colunas do registro público que o protocolo de 60 itens realmente usa.
+#
+# A base do IBAMA tem 84 colunas. Guardar as 84 encheria o banco de campos de
+# controle interno do órgão que não respondem a pergunta nenhuma; guardar 15,
+# como se fazia, deixava de fora o enquadramento legal, a dosimetria, a forma
+# de entrega da notificação, a área autuada e os marcos de prescrição.
+#
+# Cada campo desta lista está amarrado a pelo menos um item do protocolo — a
+# correspondência vive em preverificacao.py, onde é aplicada.
+CAMPOS_DO_REGISTRO = (
+    # conduta e enquadramento — itens 1.2 e 1.3
+    "DES_AUTO_INFRACAO", "DES_INFRACAO", "COD_INFRACAO",
+    "DS_ENQUADRAMENTO_ADMINISTRATIVO", "DS_ENQUADRAMENTO_NAO_ADMINISTRATIVO",
+    "DS_ENQUADRAMENTO_COMPLEMENTAR",
+    # área e cálculo — itens 1.4, 4.9 e 5.2
+    "QT_AREA", "INFRACAO_AREA", "CLASSIFICACAO_AREA", "DS_FATOR_AJUSTE",
+    "WKT_GE_AREA_AUTUADA", "TP_ORIGEM_GE_AREA_AUTUADA", "DS_ERRO_GE_AREA_AUTUADA",
+    # dosimetria — item 5.1
+    "GRAVIDADE_INFRACAO", "CD_NIVEL_GRAVIDADE", "MOTIVACAO_CONDUTA",
+    "EFEITO_MEIO_AMBIENTE", "EFEITO_SAUDE_PUBLICA", "FUNDAMENTACAO_MULTA", "TIPO_MULTA",
+    # notificação — itens 3.1 a 3.4
+    "FORMA_ENTREGA",
+    # diligência e provas — itens 1.12 e 4.2
+    "ORDEM_FISCALIZACAO", "UNID_ORDENADORA", "DS_REFERENCIA_ACAO_FISCALIZATORIA",
+    "TIPO_ACAO", "OPERACAO", "DES_LOCAL_INFRACAO", "DS_WKT",
+    # competência — itens 2.3 e 2.4
+    "UNIDADE_CONSERVACAO",
+    # prazos — módulo 6
+    "DT_INICIO_ATO_INEQUIVOCO", "DT_FIM_ATO_INEQUIVOCO",
+    # instrução e recurso — itens 8.3, 9.1 e 9.2
+    "PASSIVEL_RECUPERACAO", "SOLICITACAO_RECURSO",
+    "CD_TERMOS_APREENSAO", "CD_TERMOS_EMBARGOS",
+)
+
+
+def _recorte_do_registro(row: dict) -> dict:
+    """Só chaves com valor. O que não veio da fonte não existe, em vez de
+    existir vazio — assim `campo ausente` significa mesmo ausente."""
+    out = {}
+    for c in CAMPOS_DO_REGISTRO:
+        v = (row.get(c) or "").strip()
+        if v:
+            out[c] = v
+    return out
+
+
 @dataclass
 class Caso:
     num_auto: str
@@ -103,6 +149,8 @@ class Caso:
     dt_ciencia: date | None
     lat: float | None
     lon: float | None
+    # Recorte cru do registro público — ver CAMPOS_DO_REGISTRO.
+    registro: dict = field(default_factory=dict)
     sinais: list[Sinal] = field(default_factory=list)
     prioridade: float = 0.0
     dias_para_defesa: int | None = None
@@ -196,6 +244,7 @@ def ingerir(caminho: str | Path, hoje: date | None = None, limite: int | None = 
                 dt_ciencia=_data(row.get("DAT_CIENCIA_AUTUACAO")),
                 lat=_coord(row.get("NUM_LATITUDE_AUTO")),
                 lon=_coord(row.get("NUM_LONGITUDE_AUTO")),
+                registro=_recorte_do_registro(row),
                 _alterado_em=((row.get("DT_ULT_ALTERACAO") or row.get("DT_LANCAMENTO") or "").strip()),
             )
             if not c.num_auto:

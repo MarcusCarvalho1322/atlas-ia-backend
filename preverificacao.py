@@ -1,0 +1,369 @@
+"""
+Pré-verificação do protocolo a partir do registro público do IBAMA.
+
+O PROBLEMA QUE ISTO RESOLVE
+---------------------------
+O protocolo tem 60 itens e todos eram perguntados à pessoa, um a um, mesmo
+quando a resposta já estava no registro público que o sistema baixa todo dia.
+Medido sobre os 54.353 autos de 2023 a 2026 (não cancelados) do arquivo
+`auto_infracao_csv.zip`: a base tem 84 colunas e o sistema lia 15.
+
+A FRONTEIRA QUE NÃO PODE SER ATRAVESSADA
+-----------------------------------------
+O registro público é o CADASTRO ADMINISTRATIVO do auto — não é o auto, não é o
+processo. Campo vazio no cadastro NÃO prova que a peça falta no processo.
+Confundir as duas coisas produziria um laudo de aparência impecável e conteúdo
+inventado, que é o pior desfecho possível para este produto.
+
+Daí as três faixas, e a regra de cada uma:
+
+  APURADO    conta de chegada sobre dado PRESENTE (subtração de datas,
+             cruzamento da base). Não há leitura nem interpretação. Só isto
+             vira resposta — e chega marcado como apurado, nunca confundido
+             com o que a pessoa respondeu.
+
+  EVIDÊNCIA  o registro carrega um fato que pesa no item. O sistema mostra o
+             campo e o valor ao lado da pergunta; quem responde é a pessoa.
+
+  INTOCADO   exige o processo na mão. Nada é sugerido, pré-marcado ou
+             insinuado. É o silêncio deliberado.
+
+Ausência no cadastro nunca vira afirmação sobre o processo. Quando a ausência
+é ela própria o achado (não há coordenada nenhuma registrada), isso é dito
+como ausência no registro, com essas palavras.
+"""
+from __future__ import annotations
+
+from datetime import date, timedelta
+from typing import Optional
+
+# ── vocabulário de resposta do catálogo ────────────────────────────────────
+OK, FAIL, NA = "ok", "fail", "na"
+
+# Janela usada no cruzamento do item 5.6. Trinta dias é o intervalo em que
+# autuações sobre a mesma pessoa e o mesmo município deixam de parecer
+# coincidência e passam a merecer conferência de bis in idem. Não é prazo
+# legal: é critério de triagem, e está escrito na leitura de cada achado.
+JANELA_MULTIPLAS_DIAS = 30
+
+# Marco do art. 59 da Lei 12.651/12 — fatos anteriores a esta data podem ser
+# alcançados pelo PRA.
+MARCO_PRA = date(2008, 7, 22)
+
+DECURSO_ANOS = 3
+
+
+def _d(valor) -> Optional[date]:
+    """Aceita date, datetime ou string ISO; devolve date ou None."""
+    if valor is None:
+        return None
+    if isinstance(valor, date):
+        return valor
+    s = str(valor).strip()[:10]
+    try:
+        return date.fromisoformat(s)
+    except ValueError:
+        return None
+
+
+def _campo(reg: dict, nome: str) -> Optional[str]:
+    v = (reg or {}).get(nome)
+    if v is None:
+        return None
+    v = str(v).strip()
+    return v or None
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  FAIXA 1 — APURADO
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _apurar(p, reg: dict, irmaos: list) -> dict:
+    """
+    Devolve {item_id: {resposta, porque, campos}} só para o que é conta de
+    chegada. `irmaos` são os autos do mesmo documento/município na janela.
+    """
+    out: dict[str, dict] = {}
+    fato, auto = _d(p.dt_fato), _d(p.dt_auto)
+
+    # 6.1 — decurso entre o fato e a lavratura. Subtração pura.
+    if fato and auto:
+        dias = (auto - fato).days
+        if dias >= 0:
+            anos = dias / 365.25
+            out["6.1"] = {
+                "resposta": FAIL if anos > DECURSO_ANOS else OK,
+                # "fail" aqui significa "a constatação do item se confirma",
+                # que é como o catálogo lê a não conformidade.
+                "porque": (
+                    f"{dias} dias entre o fato ({fato.isoformat()}) e a lavratura "
+                    f"({auto.isoformat()}) — {anos:.1f} ano(s)."
+                ),
+                "campos": {"DT_FATO_INFRACIONAL": fato.isoformat(),
+                           "DAT_HORA_AUTO_INFRACAO": auto.isoformat()},
+            }
+
+        # 1.5 — inversão temporal. Só responde quando o auto antecede o fato:
+        # aí a impossibilidade está na face do registro. No caso normal a
+        # pergunta também indaga se as datas CONSTAM DO AUTO, o que o cadastro
+        # não informa — então fica com a pessoa.
+        else:
+            out["1.5"] = {
+                "resposta": FAIL,
+                "porque": (
+                    f"O auto foi lavrado {abs(dias)} dia(s) ANTES da data do fato "
+                    f"registrada (auto {auto.isoformat()}, fato {fato.isoformat()})."
+                ),
+                "campos": {"DT_FATO_INFRACIONAL": fato.isoformat(),
+                           "DAT_HORA_AUTO_INFRACAO": auto.isoformat()},
+            }
+
+    # 6.6 — o item é composto: fato anterior a 22/07/2008 E adesão ao PRA.
+    #
+    # Só a primeira metade é verificável no registro, e ela só resolve o item
+    # numa direção: fato POSTERIOR ao marco elimina a hipótese inteira, e aí o
+    # item é NÃO APLICÁVEL — o que o catálogo trata como fora da conta, sem
+    # inflar nem desinflar o índice.
+    #
+    # Fato ANTERIOR ao marco não responde nada: a adesão ao PRA não está em
+    # base nenhuma. Aí o item fica em branco e vira evidência. Responder "ok"
+    # nos 96% de casos posteriores acrescentaria uma conformidade que ninguém
+    # conferiu — exatamente o erro que este módulo existe para não cometer.
+    if fato and fato >= MARCO_PRA:
+        out["6.6"] = {
+            "resposta": NA,
+            "porque": (
+                f"Fato em {fato.isoformat()}, posterior ao marco de "
+                f"{MARCO_PRA.strftime('%d/%m/%Y')} — a hipótese do PRA não se coloca."
+            ),
+            "campos": {"DT_FATO_INFRACIONAL": fato.isoformat()},
+        }
+
+    # 1.10 — coordenada. Só responde a AUSÊNCIA, que é verificável. Presença
+    # não prova datum SIRGAS 2000, que o cadastro não declara.
+    if p.lat is None and p.lon is None and not _campo(reg, "DS_WKT"):
+        out["1.10"] = {
+            "resposta": FAIL,
+            "porque": "Não há latitude, longitude nem geometria no registro público deste auto.",
+            "campos": {"NUM_LATITUDE_AUTO": "(vazio)", "NUM_LONGITUDE_AUTO": "(vazio)",
+                       "DS_WKT": "(vazio)"},
+        }
+
+    # 5.6 — múltiplas multas sobre o mesmo ato físico. Cruzamento da base, que
+    # nenhuma pessoa faz lendo um processo de cada vez.
+    if irmaos:
+        lista = ", ".join(
+            f"{i.num_auto} ({_d(i.dt_auto).isoformat() if _d(i.dt_auto) else 's/data'})"
+            for i in irmaos[:8]
+        )
+        mais = f" e mais {len(irmaos) - 8}" if len(irmaos) > 8 else ""
+        out["5.6"] = {
+            "resposta": FAIL,
+            "porque": (
+                f"{len(irmaos)} outro(s) auto(s) contra o mesmo documento, no mesmo "
+                f"município, em até {JANELA_MULTIPLAS_DIAS} dias: {lista}{mais}. "
+                "Conferir no processo se tratam do mesmo ato físico."
+            ),
+            "campos": {"autos_proximos": str(len(irmaos))},
+        }
+
+    return out
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  FAIXA 2 — EVIDÊNCIA
+# ═══════════════════════════════════════════════════════════════════════════
+
+def _ev(item, titulo, campos, leitura) -> dict:
+    return {"item": item, "titulo": titulo,
+            "campos": [{"nome": n, "valor": v} for n, v in campos if v],
+            "leitura": leitura}
+
+
+def _evidenciar(p, reg: dict, irmaos_todos: list) -> list[dict]:
+    ev: list[dict] = []
+    g = lambda n: _campo(reg, n)
+
+    # 1.3 — dispositivo × conduta, lado a lado.
+    enq = g("DS_ENQUADRAMENTO_ADMINISTRATIVO") or g("DS_ENQUADRAMENTO_NAO_ADMINISTRATIVO")
+    desc = g("DES_AUTO_INFRACAO")
+    if enq or desc:
+        ev.append(_ev("1.3", "Dispositivo citado e conduta descrita",
+            [("DS_ENQUADRAMENTO_ADMINISTRATIVO", g("DS_ENQUADRAMENTO_ADMINISTRATIVO")),
+             ("DS_ENQUADRAMENTO_NAO_ADMINISTRATIVO", g("DS_ENQUADRAMENTO_NAO_ADMINISTRATIVO")),
+             ("DS_ENQUADRAMENTO_COMPLEMENTAR", g("DS_ENQUADRAMENTO_COMPLEMENTAR")),
+             ("DES_AUTO_INFRACAO", desc),
+             ("DES_INFRACAO", g("DES_INFRACAO"))],
+            "Compare o artigo enquadrado com a conduta que o próprio auto descreve."))
+
+    # 1.2 — especificidade da descrição.
+    if desc:
+        ev.append(_ev("1.2", "Descrição da conduta no registro",
+            [("DES_AUTO_INFRACAO", desc)],
+            f"{len(desc)} caracteres. Avalie se descreve conduta específica ou repete a lei."))
+
+    # 1.12 — ordem de fiscalização.
+    if g("ORDEM_FISCALIZACAO") or g("UNID_ORDENADORA"):
+        ev.append(_ev("1.12", "Ordem de fiscalização registrada",
+            [("ORDEM_FISCALIZACAO", g("ORDEM_FISCALIZACAO")),
+             ("UNID_ORDENADORA", g("UNID_ORDENADORA"))],
+            "O cadastro registra a ordem que autorizou a diligência. Confira se a OS está juntada."))
+    else:
+        ev.append(_ev("1.12", "Sem ordem de fiscalização no registro", [],
+            "O cadastro NÃO traz ordem de fiscalização para este auto — presente em 99,3% "
+            "dos autos recentes. Ausência no cadastro não prova ausência no processo."))
+
+    # 2.3 e 2.4 — unidade de conservação e classificação da área.
+    if g("UNIDADE_CONSERVACAO") or g("CLASSIFICACAO_AREA"):
+        ev.append(_ev("2.3", "Área e unidade de conservação",
+            [("UNIDADE_CONSERVACAO", g("UNIDADE_CONSERVACAO")),
+             ("CLASSIFICACAO_AREA", g("CLASSIFICACAO_AREA")),
+             ("DS_BIOMAS_ATINGIDOS", p.bioma)],
+            "Define competência e tipificação. UC federal consta em apenas 0,4% dos autos."))
+
+    # 3.1 a 3.4 — notificação.
+    forma, ciencia = g("FORMA_ENTREGA"), _d(p.dt_ciencia)
+    if forma or ciencia:
+        ev.append(_ev("3.1", "Como a notificação foi entregue",
+            [("FORMA_ENTREGA", forma),
+             ("DAT_CIENCIA_AUTUACAO", ciencia.isoformat() if ciencia else None)],
+            {"Representante": "Entregue a representante — confira a procuração nos autos.",
+             "Edital": "Notificação por edital — confira a tentativa prévia de AR frustrada.",
+             "Correios": "Entrega por Correios — confira quem assinou o AR.",
+             "Pessoalmente": "Entrega pessoal — confira a identificação de quem recebeu.",
+             }.get(forma or "", "Confira o comprovante de entrega no processo.")))
+    if not ciencia:
+        ev.append(_ev("3.4", "Sem data de ciência no registro", [],
+            "O cadastro não traz data de ciência — ausente em 31,9% dos autos recentes. "
+            "Sem esse marco não há como conferir a contagem do prazo de defesa pelo registro."))
+
+    # 4.2 — campo ou imagem.
+    if g("TIPO_ACAO") or g("DS_REFERENCIA_ACAO_FISCALIZATORIA") or g("TP_ORIGEM_GE_AREA_AUTUADA"):
+        ev.append(_ev("4.2", "Natureza da ação fiscalizatória",
+            [("TIPO_ACAO", g("TIPO_ACAO")),
+             ("OPERACAO", g("OPERACAO")),
+             ("DS_REFERENCIA_ACAO_FISCALIZATORIA", g("DS_REFERENCIA_ACAO_FISCALIZATORIA")),
+             ("TP_ORIGEM_GE_AREA_AUTUADA", g("TP_ORIGEM_GE_AREA_AUTUADA"))],
+            "Indica o contexto da fiscalização. Não substitui o relatório de vistoria."))
+
+    # 4.9 e 5.2 — área e cálculo.
+    qt, infra = g("QT_AREA"), g("INFRACAO_AREA")
+    if qt:
+        ev.append(_ev("4.9", "Área no registro",
+            [("QT_AREA", qt), ("INFRACAO_AREA", infra),
+             ("WKT_GE_AREA_AUTUADA", "presente" if g("WKT_GE_AREA_AUTUADA") else None)],
+            "Confira se a área do auto coincide com a que serviu de base ao cálculo."))
+    elif (infra or "").lower() == "desmatamento":
+        ev.append(_ev("4.9", "Auto de desmatamento SEM área no registro", [("INFRACAO_AREA", infra)],
+            "A multa de desmatamento é calculada por hectare e o campo de área está vazio. "
+            "Ocorre em 80,1% dos autos de desmatamento — confira o cálculo no processo."))
+    if g("DS_ERRO_GE_AREA_AUTUADA"):
+        ev.append(_ev("4.9", "O IBAMA registrou ERRO na geometria da área autuada",
+            [("DS_ERRO_GE_AREA_AUTUADA", g("DS_ERRO_GE_AREA_AUTUADA"))],
+            "Consta em apenas 0,1% dos autos. É o próprio órgão anotando defeito na área."))
+
+    # 5.1 — dosimetria: o que consta e, sobretudo, o que falta.
+    criterios = [("GRAVIDADE_INFRACAO", g("GRAVIDADE_INFRACAO")),
+                 ("MOTIVACAO_CONDUTA", g("MOTIVACAO_CONDUTA")),
+                 ("EFEITO_MEIO_AMBIENTE", g("EFEITO_MEIO_AMBIENTE")),
+                 ("EFEITO_SAUDE_PUBLICA", g("EFEITO_SAUDE_PUBLICA"))]
+    vazios = [n for n, v in criterios if not v]
+    ev.append(_ev("5.1", "Critérios de dosimetria no registro", criterios,
+        ("Todos os critérios do cadastro estão preenchidos."
+         if not vazios else
+         "Em branco no registro: " + ", ".join(vazios)
+         + ". A gravidade falta em 65,1% dos autos recentes. "
+           "Confira se o auto explicita os cinco critérios do art. 4º do Dec. 6.514/08.")))
+
+    # 5.2 — fundamentação do valor.
+    if g("FUNDAMENTACAO_MULTA") or g("DS_FATOR_AJUSTE") or g("TIPO_MULTA"):
+        ev.append(_ev("5.2", "Fundamentação do valor",
+            [("FUNDAMENTACAO_MULTA", g("FUNDAMENTACAO_MULTA")),
+             ("DS_FATOR_AJUSTE", g("DS_FATOR_AJUSTE")),
+             ("TIPO_MULTA", g("TIPO_MULTA"))],
+            "Texto com que o órgão justificou o valor. Confira contra o cálculo discriminado."))
+
+    # 5.3 — antecedentes, do próprio acervo.
+    if irmaos_todos:
+        ev.append(_ev("5.3", f"{len(irmaos_todos)} outro(s) auto(s) do mesmo documento na carteira",
+            [("autos", ", ".join(i.num_auto for i in irmaos_todos[:10]))],
+            "Base factual para discutir — ou afastar — reincidência. Só vale se houver "
+            "decisão definitiva anterior, o que o cadastro não informa."))
+
+    # 6.2 — marcos do ato inequívoco.
+    ini, fim = g("DT_INICIO_ATO_INEQUIVOCO"), g("DT_FIM_ATO_INEQUIVOCO")
+    if ini or fim:
+        ev.append(_ev("6.2", "Marcos do ato inequívoco de apuração",
+            [("DT_INICIO_ATO_INEQUIVOCO", ini), ("DT_FIM_ATO_INEQUIVOCO", fim)],
+            "São os marcos que o cadastro registra para a apuração. Não substituem o "
+            "andamento do processo, onde a paralisação de fato é verificada."))
+
+    # 6.6 — quando o fato antecede o marco do PRA, o apurador se cala e o
+    # achado vem como evidência: a adesão ao PRA não existe em base pública.
+    fato = _d(p.dt_fato)
+    if fato and fato < MARCO_PRA:
+        ev.append(_ev("6.6", "Fato anterior ao marco do PRA",
+            [("DT_FATO_INFRACIONAL", fato.isoformat())],
+            f"O fato é de {fato.strftime('%d/%m/%Y')}, anterior a "
+            f"{MARCO_PRA.strftime('%d/%m/%Y')}. Confira no processo se o imóvel aderiu "
+            "ao Programa de Regularização Ambiental — isso não consta de base pública."))
+
+    # 8.3 — recuperação.
+    if g("PASSIVEL_RECUPERACAO"):
+        s = g("PASSIVEL_RECUPERACAO")
+        ev.append(_ev("8.3", "Marcação de passível de recuperação",
+            [("PASSIVEL_RECUPERACAO", s)],
+            "O IBAMA marcou a área como passível de recuperação — abre a via do PRAD."
+            if s.upper() == "S" else
+            "O IBAMA NÃO marcou a área como passível de recuperação."))
+
+    # 9.1 e 9.2 — recurso.
+    if g("SOLICITACAO_RECURSO"):
+        ev.append(_ev("9.1", "Solicitação de recurso protocolada",
+            [("SOLICITACAO_RECURSO", g("SOLICITACAO_RECURSO"))],
+            "Há protocolo de recurso no cadastro. Confira se o conhecimento foi "
+            "condicionado a depósito, caução ou arrolamento."))
+
+    # 1.1 — identificação.
+    ev.append(_ev("1.1", "Identificação no registro público",
+        [("NOME_INFRATOR", "consta" if p.nome else None),
+         ("CPF_CNPJ_INFRATOR", p.documento_mascarado),
+         ("TP_PESSOA_INFRATOR", p.tipo_pessoa),
+         ("MUNICIPIO / UF", f"{p.municipio or '—'}/{p.uf or '—'}")],
+        "O cadastro traz a identificação. O endereço do auto não consta do registro "
+        "público — confira nas peças."))
+
+    return ev
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  ENTRADA
+# ═══════════════════════════════════════════════════════════════════════════
+
+def pre_verificar(p, irmaos_janela: list, irmaos_todos: list) -> dict:
+    """
+    p              — o Prospecto em análise
+    irmaos_janela  — autos do mesmo documento e município em até 30 dias
+    irmaos_todos   — todos os demais autos do mesmo documento na carteira
+    """
+    reg = getattr(p, "registro", None) or {}
+    apurados = _apurar(p, reg, irmaos_janela)
+    evidencias = _evidenciar(p, reg, irmaos_todos)
+    return {
+        "num_auto": p.num_auto,
+        "apurados": apurados,
+        "evidencias": evidencias,
+        "cobertura": {
+            "itens_apurados": len(apurados),
+            "itens_com_evidencia": len({e["item"] for e in evidencias}),
+            "itens_no_protocolo": 60,
+        },
+        "registro_disponivel": bool(reg),
+        "fonte": "IBAMA — Dados Abertos, Fiscalização/Auto de Infração",
+        "aviso": (
+            "Apuração feita sobre o CADASTRO ADMINISTRATIVO do auto, não sobre o auto "
+            "nem sobre o processo. Campo vazio no cadastro não prova peça ausente no "
+            "processo. Os itens marcados como apurados resultam de conta sobre dado "
+            "presente; todos os demais permanecem com quem analisa."
+        ),
+    }

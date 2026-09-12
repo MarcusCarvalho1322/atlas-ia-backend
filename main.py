@@ -27,7 +27,7 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from db import Base, engine, get_db, SessionLocal, descrever_banco
+from db import Base, engine, get_db, SessionLocal, descrever_banco, garantir_colunas
 from models import Caso, Prospecto
 import geo_service
 import ai_service
@@ -35,8 +35,12 @@ import catalogo
 import prospeccao
 import rotina
 import enriquecimento
+import preverificacao
 
 Base.metadata.create_all(bind=engine)
+# create_all cria tabelas que faltam e não toca nas que já existem. Coluna nova
+# em tabela antiga precisa disto — ver a justificativa em db.garantir_colunas.
+COLUNAS_ACRESCENTADAS = garantir_colunas()
 
 ALLOWED_ORIGINS = [o.strip() for o in os.getenv("ALLOWED_ORIGINS", "*").split(",") if o.strip()]
 
@@ -279,6 +283,57 @@ def contato_do_caso(num_auto: str, authorization: Optional[str] = Header(None),
     return {"num_auto": p.num_auto, "contato": enriquecimento.contato_do_caso(db, p)}
 
 
+# ───────────────────── Pré-verificação do protocolo ─────────────────────
+
+@app.get("/api/prospeccao/{num_auto}/pre-verificacao")
+def pre_verificacao_do_caso(num_auto: str, authorization: Optional[str] = Header(None),
+                            db: Session = Depends(get_db)):
+    """
+    O que o registro público já responde do protocolo, antes de alguém digitar.
+
+    Devolve duas coisas separadas de propósito:
+
+      `apurados`    itens resolvidos por conta de chegada sobre dado presente —
+                    subtração de datas e cruzamento da carteira. Viram resposta,
+                    marcados como apurados, nunca confundidos com o que a pessoa
+                    respondeu.
+
+      `evidencias`  o campo do registro e o valor, ao lado da pergunta. O
+                    sistema não responde: mostra o fato e devolve o juízo a
+                    quem analisa.
+
+    Os irmãos do item 5.6 saem de uma consulta ao acervo, e é por isso que ela
+    fica aqui e não dentro do módulo: o cruzamento precisa do banco.
+    """
+    _checar_auth(authorization)
+    p = db.query(Prospecto).filter(Prospecto.num_auto == num_auto).first()
+    if not p:
+        raise HTTPException(404, "Auto não encontrado na carteira.")
+
+    # Autos do mesmo documento. O mascarado basta para agrupar e não expõe
+    # documento por extenso de pessoa física.
+    familia: list = []
+    chave = p.cnpj or p.documento_mascarado
+    if chave:
+        q = db.query(Prospecto)
+        q = q.filter(Prospecto.cnpj == p.cnpj) if p.cnpj else \
+            q.filter(Prospecto.documento_mascarado == p.documento_mascarado)
+        familia = [x for x in q.limit(200).all() if x.num_auto != p.num_auto]
+
+    def _dt(v):
+        try:
+            return date.fromisoformat(str(v)[:10])
+        except Exception:
+            return None
+
+    base = _dt(p.dt_auto)
+    janela = [x for x in familia
+              if x.municipio == p.municipio and base and _dt(x.dt_auto)
+              and abs((_dt(x.dt_auto) - base).days) <= preverificacao.JANELA_MULTIPLAS_DIAS]
+
+    return preverificacao.pre_verificar(p, janela, familia)
+
+
 @app.get("/api/prospeccao/territorio")
 def territorio(tipo_pessoa: str = "PF", topo: int = 50,
                authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
@@ -364,6 +419,12 @@ class AuditoriaRequest(BaseModel):
     respostas: dict[str, str]              # {"1.1": "ok" | "fail" | "na", ...}
     valorMulta: Optional[str | float] = None  # para calcular a exposição financeira
     casoId: Optional[str] = None           # se informado, o resultado é gravado no caso
+    # Ids que vieram da pré-verificação, apurados sobre o registro público em
+    # vez de respondidos por pessoa. O laudo declara essa separação: quem lê o
+    # documento precisa saber o que foi conferido por alguém e o que é conta
+    # sobre cadastro. Sem isso, o laudo afirmaria verificação humana que não
+    # houve — que é a única forma de este produto enganar o próprio dono.
+    apurados: Optional[list[str]] = None
 
 
 @app.post("/api/auditoria")
@@ -404,6 +465,27 @@ def emitir_laudo_tecnico(
             caso.audit_result = completo
             db.commit()
     laudo = catalogo.laudo_tecnico(completo)
+
+    # A PROCEDÊNCIA DE CADA RESPOSTA VAI NO LAUDO.
+    #
+    # Item apurado sobre o registro público e item conferido por pessoa nas
+    # peças do processo são coisas diferentes, e o documento tem de dizer qual
+    # é qual. Sem esta declaração o laudo teria aparência de verificação
+    # integral — o defeito que este sistema tem a obrigação de não cometer.
+    apurados = [i for i in (req.apurados or []) if i in (req.respostas or {})]
+    laudo["procedencia_das_respostas"] = {
+        "apurados_sobre_o_registro_publico": sorted(apurados),
+        "conferidos_por_pessoa": sorted(set(req.respostas or {}) - set(apurados)),
+        "nota": (
+            "Os itens apurados resultam de conta de chegada sobre o cadastro público "
+            "do IBAMA (subtração de datas e cruzamento do acervo). O cadastro não é o "
+            "auto nem o processo: campo ausente nele não prova peça ausente no "
+            "processo. Os demais itens foram conferidos por quem assina a análise."
+        ) if apurados else (
+            "Todos os itens verificados foram conferidos por quem assina a análise."
+        ),
+    }
+
     # O valor da multa é fato, e acompanha o laudo. O valor projetado por
     # probabilidade de êxito, não — esse fica no anexo jurídico.
     if req.valorMulta:
