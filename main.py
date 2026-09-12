@@ -120,7 +120,7 @@ def health():
     return {"ok": True}
 
 
-CONSOLE_HTML = Path(__file__).parent / "frontend-updates" / "console-prospeccao.html"
+CONSOLE_HTML = Path(__file__).parent / "web" / "console-prospeccao.html"
 
 
 @app.get("/console")

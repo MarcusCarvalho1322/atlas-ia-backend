@@ -1,24 +1,43 @@
-# Base do IBAMA baixada em tempo de execucao - nunca versionar
-dados_ibama/
-*.csv
-*.zip
-
-# Banco SQLite local. So existe quando se roda sem DATABASE_URL; em producao
-# o banco e o PostgreSQL do Render. Versionar arquivo de banco e caminho curto
-# para publicar dado de cliente sem perceber.
-*.db
-*.sqlite
-*.sqlite3
-
-# Bytecode do Python - gerado pela maquina, envelhece e confunde o deploy
-__pycache__/
-*.py[cod]
-
-# Segredos. So o .env.example vai para o Git.
+# ───────────────────────── SEGREDOS ─────────────────────────
+# Só o .env.example vai para o Git. Nunca o .env.
 .env
 .env.*
 !.env.example
 
-# Ambientes virtuais
+# Senhas da equipe. Este arquivo chegou a ser preparado para commit uma vez —
+# o repositório é privado, mas senha em repositório é senha que vaza no dia em
+# que alguém ganha acesso de leitura, ou no dia em que o repositório deixa de
+# ser privado. Fica só no computador.
+docs/ACESSOS-EQUIPE.txt
+*ACESSOS*
+*SENHAS*
+
+# ─────────────────── DADOS BAIXADOS EM EXECUÇÃO ───────────────────
+# A base do IBAMA é rebaixada sozinha a cada rodada. Versionar isso
+# encheria o repositório de centenas de MB que envelhecem em 24h.
+dados_ibama/
+*.csv
+*.zip
+
+# ───────────────────────── BANCO LOCAL ─────────────────────────
+# Só existe quando se roda sem DATABASE_URL. Em produção o banco é o
+# PostgreSQL do Render. Arquivo de banco versionado é caminho curto para
+# publicar dado de cliente sem perceber.
+*.db
+*.sqlite
+*.sqlite3
+
+# ───────────────────── GERADO PELA MÁQUINA ─────────────────────
+__pycache__/
+*.py[cod]
 .venv/
 venv/
+node_modules/
+dist/
+*.log
+
+# ───────────────────────── TEMPORÁRIOS ─────────────────────────
+_lixeira/
+_*.ps1
+.DS_Store
+Thumbs.db

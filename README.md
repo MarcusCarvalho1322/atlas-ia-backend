@@ -1,258 +1,202 @@
-# atlas-geo — backend do ATLAS-IA
+# ATLAS-IA
 
-Servidor que dá ao ATLAS-IA (Sistema de Defesa Ambiental) quatro coisas que ele
-não tinha: uma chave de IA que fica escondida, um banco de dados de verdade
-para os casos, verificação automática por satélite via INPE, e o catálogo de
-auditoria consolidado como fonte única de verdade.
+**Inteligência forense aplicada a autos de infração ambiental do IBAMA.**
 
-## O que este serviço resolve
+Este arquivo é o ponto de entrada. Foi escrito para quem **não é
+desenvolvedor** — se algo aqui parecer jargão, é falha do texto, não sua.
 
-| Antes (só no navegador) | Depois (com o atlas-geo) |
-|---|---|
-| App pedia sua chave da Anthropic numa janela pop-up a cada diagnóstico/peça | Chave fica só aqui no servidor, em variável de ambiente |
-| Casos salvos só no `localStorage` — somem se limpar o navegador | Casos salvos num banco Postgres real, acessível de qualquer lugar |
-| Nenhuma verificação técnica automática | Cruzamento das coordenadas do caso contra DETER + PRODES (INPE) |
-| **20 verificações**, escritas em duplicidade em dois arquivos do front-end | **60 verificações** em 9 módulos, num catálogo único servido pela API |
-| Auditoria terminava num score técnico | Score **+ exposição financeira da causa**, em reais |
+---
 
-## O catálogo de auditoria
+## 1. O que o sistema faz
 
-`catalogo.json` + `catalogo.py` são a fonte única de verdade das regras.
+Duas coisas distintas, que compartilham o mesmo motor:
 
-Antes, as listas viviam duplicadas: `App.jsx` guardava `NAMES/TESES/WEIGHTS/TAXAS/RISCOS`
-e `IntakeTab.jsx` guardava `CHECKS/CHECK_INVERT`, alinhadas apenas pela **posição**
-no array. Inserir um item no meio de uma lista e esquecer a outra fazia o sistema
-exibir a tese errada para a resposta errada, sem qualquer erro visível.
+**Audita processos.** Aplica um protocolo de **60 itens de verificação** sobre
+as peças de um auto de infração e aponta o que está faltando, incoerente ou mal
+instruído. Cada item tem peso conforme a gravidade técnica.
 
-**Conteúdo consolidado de duas fontes reais do próprio acervo:**
+**Encontra clientes.** Todo dia de madrugada baixa a base pública do IBAMA,
+identifica os autos com **prazo de defesa ainda aberto**, ranqueia por
+relevância e busca telefone e endereço do autuado na Receita Federal.
 
-| Fonte | O que trouxe |
-|---|---|
-| ATLAS-IA (app React) | 20 nulidades com teses, fundamentos e taxas |
-| ATLAS FORENSE v2.1 (repositórios GitHub) | 55 itens de verificação em 8 módulos + catálogo de 20 nulidades |
+Hoje, em produção: **10.784 autos** em carteira, **R$ 3,31 bilhões** em multas
+acompanhadas, **132 com prazo vencendo**.
 
-Resultado: **60 itens de verificação** e **28 teses** sem repetição
-(10 presentes nas duas fontes, 10 exclusivas do ATLAS FORENSE, 8 exclusivas do ATLAS-IA).
+---
 
-**Módulos:** M1 Elementos formais do auto (13) · M2 Competência fiscalizatória (6) ·
-M3 Notificação (5) · M4 Provas e laudos (9) · M5 Dosimetria da multa (6) ·
-M6 Prescrição (6) · M7 CDA e execução fiscal (6) · M8 Estratégia defensiva (7) ·
-M9 Admissibilidade recursal e barreiras de acesso (2)
+## 2. Onde cada coisa mora
 
-### Regras metodológicas
+O sistema não vive num lugar só. Confundir os três é a origem de quase toda
+dúvida prática.
 
-**Peso por regra pública, não por arbítrio.** CRÍTICO = 10, ALTO = 7, MÉDIO = 4.
-Nenhum peso foi atribuído item a item. Pontuação máxima: 486.
+```mermaid
+flowchart LR
+    A["☁️ NUVEM (Render)<br/>atlas-geo.onrender.com<br/><br/>O motor: minera, calcula,<br/>guarda a carteira"]
+    B["💻 SEU COMPUTADOR<br/>C:\Users\marcu\ATLAS-IA<br/><br/>O código-fonte.<br/>É o que você abre no Antigravity"]
+    C["📦 GITHUB<br/>atlas-ia-backend (privado)<br/><br/>A cópia versionada"]
+    D["🗄️ POSTGRESQL<br/>atlas-geo-db<br/><br/>A carteira e o funil"]
 
-**Divergências ficam à vista, não são resolvidas pelo sistema.** Em 5 teses as
-duas fontes registram taxas de êxito diferentes (N04, N05, N11, N17, N18).
-O catálogo guarda os dois valores (`taxa` e `taxa_divergente`) com uma nota
-explicando a origem de cada um. Média ou escolha arbitrária seria inventar
-um dado que ninguém apurou — a decisão é do advogado responsável.
+    B -- "git push" --> C
+    C -- "publica sozinho<br/>em ~3 min" --> A
+    A <--> D
+```
 
-**Dois scores, ambos explícitos.** `score` mede as falhas sobre o que foi de
-fato avaliado (exclui N/A); `score_absoluto` mede sobre os 486 pontos do
-catálogo inteiro. Só coincidem com os 60 itens respondidos.
+> **Por que `atlas-geo.onrender.com` abre um texto esquisito e não uma tela?**
+> Porque aquele endereço é o **motor**, e motor conversa com aplicativo, não com
+> gente. O texto que aparece é o painel de instrumentos dizendo que está no ar.
+> As telas para pessoas são o **console** (`/console`) e o **aplicativo**.
 
-### Lacunas fechadas na versão 1.1
+---
 
-A versão 1.0 registrou 4 teses **sem pergunta correspondente** no checklist — entre
-elas a de maior êxito de todo o acervo. A 1.1 fechou todas, com um módulo novo:
+## 3. As telas
 
-| Tese | Êxito | Item criado |
+| Tela | Endereço | Para quem |
 |---|---|---|
-| N14 — Depósito prévio para recorrer (STF SV 21) | 95% | **9.1** e **9.2** (módulo M9, novo) |
-| N17 — Responsabilidade de arrendatário/posseiro | 39% | **1.13** |
-| N18 — Área medida divergente da imputada | 52% | **4.9** |
-| N28 — Pequeno produtor ≤ 4 módulos fiscais | 45% | **8.7** |
+| **Console de prospecção** | <https://atlas-geo.onrender.com/console> | Equipe — boletim do dia, prazos vencendo, funil comercial |
+| **Aplicativo de análise** | `frontend/` — roda em `localhost:5173` | Atendimento ao interessado |
 
-`teses_sem_item_de_verificacao` agora volta vazio: **toda tese do catálogo tem
-pergunta que a aciona.** As redações precisam de validação jurídica antes do uso
-com cliente.
+Cada pessoa entra com **sua própria senha**. Estão em
+`docs/ACESSOS-EQUIPE.txt` — mande só a linha de cada um, nunca o arquivo.
 
-### Exposição financeira
+---
 
-`exposicao_financeira` traduz a auditoria em reais: multa × taxa de êxito da tese
-mais forte. **As taxas nunca são somadas entre teses** — somar probabilidades de
-teses distintas produz número inflado e sem significado, mesma regra que o ARGUS
-TarifaCheck adota para alíquotas. É estimativa para dimensionar a causa, não
-previsão de resultado.
+## 4. O que cada arquivo faz
 
-## Prospecção — identificação e mineração de casos
+### O motor (raiz do projeto)
 
-Fonte: **IBAMA · Dados Abertos — Fiscalização/Auto de Infração**
-(`dadosabertos.ibama.gov.br`), 84 colunas, cobertura nacional desde 1980,
-**republicado diariamente**. Não exige chave nem cadastro.
-
-Medido sobre 2026 (execução de 30/08/2026, após deduplicação):
-
-| | |
+| Arquivo | Em uma frase |
 |---|---|
-| Autos vivos (cancelados e excluídos fora) | **10.305** |
-| Valor em multas | **R$ 3,18 bilhões** |
-| Com coordenada — alimenta a verificação INPE | 99,5% |
-| Prazo de defesa vencendo em até 5 dias | **143** (R$ 37,6 mi) |
-| Mais de 3 anos entre fato e lavratura | **676** (R$ 253,0 mi) |
-| Auto lavrado antes da data do fato | **253** (R$ 35,6 mi) |
+| **`catalogo.json`** | **O ativo do negócio.** Os 60 itens de verificação e as 28 teses, cada um com a leitura técnica e a jurídica lado a lado. Mudar uma regra do negócio é mudar este arquivo — sem tocar em código. |
+| `catalogo.py` | Aplica o catálogo às respostas e calcula o índice. É onde vive a separação entre o que vai para o cliente e o que vai para o advogado. |
+| `main.py` | As portas de entrada. Cada endereço que o sistema atende está declarado aqui. |
+| `prospeccao.py` | Baixa a base do IBAMA, limpa, deduplica e ranqueia os casos. |
+| `rotina.py` | A rotina diária: sincroniza a carteira e monta o boletim. Tem o relógio interno que dispara às 06h. |
+| `enriquecimento.py` | Busca razão social, endereço e telefone do autuado na Receita Federal. |
+| `geo_service.py` | Cruza a coordenada do auto com os alertas de desmatamento do INPE. |
+| `ai_service.py` | Gera o diagnóstico estratégico e as 7 peças, chamando a Claude. |
+| `models.py` · `db.py` | O desenho das tabelas e a conexão com o banco. |
 
-### Como a rotina se comporta
+### As telas
 
-**Idempotente.** Rodar duas vezes na mesma base não cria duplicata nem marca
-nada como novo. Testado.
+| Pasta | O que é |
+|---|---|
+| `web/console-prospeccao.html` | O console da equipe. Arquivo único, sem instalação. |
+| `frontend/` | O aplicativo React de análise. Precisa ser compilado. |
 
-**Nunca sobrescreve decisão humana.** O status comercial de cada caso
-(novo/selecionado/contatado/descartado/cliente) é preservado entre execuções.
-Casos marcados como descartado ou cliente saem do boletim sozinhos.
+### O resto
 
-**Detecta mudança na fonte.** Se o IBAMA alterar valor, data de ciência, data
-do fato ou número do processo, a rotina reporta o campo alterado e reconcilia.
+| Pasta | O que é |
+|---|---|
+| `docs/` | Documentação, mapa detalhado, acessos da equipe, histórico. |
+| `ferramentas/` | Scripts de apoio (copiar senha para a área de transferência). |
+| `render.yaml` · `Dockerfile` · `requirements.txt` | Receita de publicação e lista de dependências. |
 
-**Deduplicação.** O dataset traz mais de uma linha para o mesmo auto — versões
-sucessivas do registro, e às vezes a linha cancelada ao lado da viva
-(justificativa "Duplicação"). Nem `NUM_AUTO_INFRACAO` nem `SEQ_AUTO_INFRACAO`
-são únicos. A ingestão mantém a versão mais recente de cada auto por
-`DT_ULT_ALTERACAO`.
+> ⚠️ **Os arquivos do motor ficam na raiz de propósito.** O Render publica a
+> partir da raiz. Mover `main.py` para dentro de uma subpasta **quebra o site no
+> ar**. Se a IDE sugerir "organizar melhor" movendo esses arquivos, recuse.
 
-### Agendamento
+---
 
-Embutido no serviço, sem cron externo nem biblioteca extra: defina
-`ROTINA_DIARIA_HORA` (0–23, UTC). Falha de execução é registrada e não derruba
-o serviço; `GET /api/prospeccao/ultima-execucao` mostra o resultado do último ciclo.
+## 5. Abrindo no Antigravity
 
-### Contato do autuado — a linha que o sistema não cruza
+1. **File → Open Folder** → `C:\Users\marcu\ATLAS-IA`
+2. O Antigravity lê o `AGENTS.md` sozinho. Esse arquivo conta a ele as regras do
+   projeto — inclusive as armadilhas já encontradas, para não reintroduzi-las.
+3. Pergunte o que quiser em português. Exemplos que funcionam bem:
+   - *"Explique o que o arquivo catalogo.py faz, passo a passo."*
+   - *"Quero adicionar uma pergunta nova ao módulo 5. Onde mexo?"*
+   - *"Por que o console mostra menos casos do que o contador?"*
 
-A base do IBAMA identifica o autuado e o município, mas **não traz contato**:
-não há endereço, telefone ou e-mail em nenhuma das 84 colunas. O contato vem de
-outra fonte, e aqui empresa e pessoa física seguem caminhos diferentes por
-decisão de arquitetura, não por limitação técnica.
+**Se a IDE propuser uma mudança que você não entende, peça para ela explicar a
+consequência antes de aceitar.** O `AGENTS.md` instrui exatamente isso.
 
-| | Pessoa jurídica | Pessoa física |
+---
+
+## 6. Rodando no seu computador
+
+Você **não precisa** disso para usar o sistema — ele já está no ar. Isto é para
+testar uma alteração antes de publicar.
+
+### Uma vez só: instalar o que falta
+
+| Programa | Onde baixar | Para quê |
 |---|---|---|
-| Autos vivos em 2026 | 3.056 (29,9%) | 7.169 (70,1%) |
-| Valor | R$ 1,29 bi (40,5%) | R$ 1,89 bi (59,5%) |
-| Ticket médio | **R$ 421.092** | R$ 263.779 |
-| Contato | Receita Federal, cadastro público | **Sem fonte legítima** |
+| **Python 3.11+** | <https://python.org/downloads> — marque *"Add Python to PATH"* | roda o motor |
+| **Node.js 20+** | <https://nodejs.org> | compila o aplicativo React |
+| **Git** | <https://git-scm.com/download/win> | envia as mudanças |
 
-**Empresa:** `GET /api/prospeccao/{num_auto}/contato` consulta o Cadastro
-Nacional da Pessoa Jurídica e devolve razão social, endereço completo,
-telefone, situação cadastral e atividade. É registro empresarial público,
-publicado para consulta. Cache de 30 dias.
+### Subir o motor
 
-**Pessoa física:** não existe fonte pública e legítima de telefone ou e-mail a
-partir de CPF. Quem vende isso opera sobre bases vazadas ou raspadas — e usar
-esse tipo de origem num negócio cujo produto é rigor forense é risco
-desproporcional ao ganho: além da exposição sob a LGPD, é exatamente o que a
-parte contrária usaria para desqualificar o trabalho. **O sistema não consulta
-esse tipo de base.** Em vez disso devolve o caminho de aproximação por canal
-local, apoiado em `GET /api/prospeccao/territorio`.
-
-**Por que o território resolve:** os casos de pessoa física estão espalhados por
-1.241 municípios, mas **50 deles concentram 71,3% do valor** — e os 12 primeiros,
-38%. Novo Progresso/PA sozinho responde por R$ 134 milhões. Presença nesses
-pontos alcança a maior parte da carteira sem depender de contato individual.
-
-**CNPJ é guardado por extenso; CPF não.** Um é identificador empresarial
-público, o outro é dado pessoal. A distinção está no modelo de dados.
-
-### Dados pessoais
-
-O IBAMA publica nome e CPF/CNPJ, mas o uso para prospecção comercial é
-finalidade distinta da publicação original. O documento sai **mascarado por
-padrão** (`***2668`) e o nome só é devolvido com `revelar_documento=true` —
-para que a exposição seja sempre uma escolha registrada, não o comportamento
-padrão do sistema.
-
-## Endpoints
-
-- `GET /health` — health check
-- `GET /api/catalogo` — catálogo completo (9 módulos, 60 itens, 28 teses)
-- `POST /api/auditoria` — `{respostas, valorMulta?, casoId?}` → diagnóstico
-- `POST /api/diagnostico` — diagnóstico estratégico por IA
-- `POST /api/peca` — peça jurídica por IA (`{pecaId, formData, auditResult}`)
-- `GET|POST /api/casos`, `GET|DELETE /api/casos/{id}` — casos
-- `POST /api/geo/verificar` — `{lat, lon, bioma, dataFato?}` → alertas oficiais de desmatamento
-- `POST /api/laudo-tecnico` — camada do consumidor: só constatação verificável
-- `POST /api/anexo-juridico` — camada do advogado: teses, fundamentos, taxas
-- `POST /api/prospeccao/rotina-diaria` — baixa a base do dia, concilia e devolve o boletim
-- `GET /api/prospeccao/boletim` — o boletim, sem rebaixar
-- `GET /api/prospeccao/ranking` — ranking filtrável por UF, valor e sinal
-- `PATCH /api/prospeccao/{num_auto}` — move o caso no funil comercial
-- `GET /api/prospeccao/ultima-execucao` — quando a rotina rodou e com que resultado
-
-Todos aceitam `Authorization: Bearer <ATLAS_API_TOKEN>` quando essa variável está definida.
-
-## Publicação
-
-O serviço é um container padrão (ver `Dockerfile`) e roda em qualquer
-plataforma que aceite Docker ou Python. **Requisito não óbvio:** o processo
-precisa ficar vivo o tempo todo, porque a rotina diária dorme e acorda dentro
-dele. Plataforma que hiberna por inatividade nunca dispara a mineração — se a
-sua hibernar, desligue esse comportamento ou troque o agendador embutido por um
-cron externo chamando `POST /api/prospeccao/rotina-diaria`.
-
-### No Render — caminho de menor atrito
-
-O arquivo `render.yaml` na raiz é um Blueprint: provisiona serviço e banco de
-uma vez. No painel do Render, **New → Blueprint**, escolha este repositório e
-confirme. Ele pede **uma única coisa** — a chave da Anthropic. O token de
-acesso à API é gerado pelo próprio Render e aparece depois em *Environment*.
-
-Duas escolhas deliberadas no blueprint, que valem entender:
-
-**O plano do serviço não é o gratuito.** O plano `free` do Render hiberna por
-inatividade, e a rotina diária dorme dentro do processo — serviço hibernado é
-mineração que nunca dispara. O blueprint usa `0.5c-512mb`, que fica sempre
-ligado. Cabe com folga: o download da base é feito em streaming para disco, com
-pico medido de ~36 MB de memória.
-
-**O Postgres também não é o gratuito.** O plano grátis do Render **expira em 30
-dias e apaga o banco** — e é ali que moram a carteira de prospectos e o
-histórico do funil.
-
-### Passos, em qualquer outra plataforma
-
-1. Aponte o deploy para este repositório.
-2. Provisione um **PostgreSQL** e garanta que `DATABASE_URL` chegue ao serviço.
-3. Defina as variáveis: `ANTHROPIC_API_KEY`, `ATLAS_API_TOKEN`,
-   `ROTINA_DIARIA_HORA` (0–23 UTC; 09 = 06h de Brasília) e, opcionalmente,
-   `ALLOWED_ORIGINS` com o domínio do front-end.
-4. Gere o domínio público.
-5. Chame uma vez `POST /api/prospeccao/atualizar` para baixar a base do IBAMA
-   (~116 MB; só o ano corrente é extraído).
-6. Leve a URL e o token para o `.env` do front-end
-   (ver `frontend-updates/README.md`).
-
-### Dimensionamento
-
-Baixar e ingerir a base pede folga de memória — o pacote do IBAMA é lido em
-memória antes de extrair. **512 MB de RAM é o mínimo confortável**; 256 MB
-tende a apertar no dia da carga. Disco: ~120 MB para o pacote mais ~25 MB por
-ano extraído.
-
-O custo relevante desta operação não é hospedagem (fica abaixo de R$ 150/mês em
-qualquer plataforma séria) — é a API da Anthropic gerando peças, que escala com
-cliente atendido.
-
-## Rodando localmente
+No Antigravity, abra o terminal (**Terminal → New Terminal**) e digite:
 
 ```bash
 pip install -r requirements.txt
-export ANTHROPIC_API_KEY=sk-ant-...
-uvicorn main:app --reload
-# http://localhost:8000/health
+uvicorn main:app --reload --port 8000
 ```
 
-## Sobre a verificação por satélite
+Abre em <http://localhost:8000/console>. O `--reload` faz o motor reiniciar
+sozinho a cada arquivo salvo.
 
-Fonte: WFS público do INPE (TerraBrasilis), a mesma base do painel oficial —
-https://terrabrasilis.dpi.inpe.br. Não exige chave nem cadastro. `geo_service.py`
-documenta a peculiaridade técnica descoberta ao testar o serviço (a ordem dos
-eixos lat/lon no filtro espacial, que devolve zero resultados silenciosamente
-se invertida).
+> Na primeira vez, copie `.env.example` para `.env` e preencha. Sem
+> `DATABASE_URL`, ele usa um banco local de teste — **nunca use isso em
+> produção**: os dados somem no primeiro reinício.
 
-## Aviso
+### Subir o aplicativo React
 
-Ferramenta de apoio técnico-jurídico para profissionais habilitados. As taxas de
-êxito são indicativas, baseadas no acervo citado, e não garantem resultado em
-caso específico. Peças geradas por IA exigem revisão de advogado antes do
-protocolo.
+Em outro terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+Abre em <http://localhost:5173>.
+
+---
+
+## 7. Publicando uma mudança
+
+A publicação é automática. Três comandos:
+
+```bash
+git add -A
+git commit -m "descreva o que mudou e por quê"
+git push
+```
+
+Em cerca de **3 minutos** o Render republica sozinho. Para conferir, abra
+<https://atlas-geo.onrender.com/> e veja se responde.
+
+### Antes de publicar, confira
+
+- [ ] O motor sobe sem erro
+- [ ] `http://localhost:8000/console` abre
+- [ ] `cd frontend && npm run build` compila
+- [ ] Nenhuma senha entrou no Git — o `.gitignore` já barra `.env`, mas confira
+
+---
+
+## 8. O que nunca deve sair daqui
+
+| Item | Onde está | Por quê |
+|---|---|---|
+| `frontend/.env` | seu computador | contém a senha de acesso à API |
+| `docs/ACESSOS-EQUIPE.txt` | seu computador | as senhas de toda a equipe |
+| Senha do banco | só no painel do Render | dá acesso direto a toda a carteira |
+| `ANTHROPIC_API_KEY` | só no painel do Render | chave de cobrança |
+| O repositório | privado no GitHub | contém o `catalogo.json` inteiro |
+
+---
+
+## 9. Pendências com data
+
+| Prazo | O quê |
+|---|---|
+| **29/09/2026** | O banco gratuito do Render **expira e é apagado** — junto vão os 10.784 casos e o funil. Cartão em *Billing*, plano Hobby, ~US$ 13/mês. |
+| Antes do 1º cliente | Rastrear as taxas de êxito das 28 teses até fonte primária (TCU, IBAMA, PGFN). É a afirmação mais atacável do produto. |
+| Antes da 1ª campanha | Validar a fronteira de captação — Provimento 205/2021 da OAB. Ver `docs/` e a pauta enviada à Dra. Emmanuelle. |
+
+---
+
+*Documentação técnica detalhada: `AGENTS.md` e `docs/MAPA-DO-PROJETO.md`.*
