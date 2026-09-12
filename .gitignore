@@ -19,6 +19,7 @@ docs/ACESSOS-EQUIPE.txt
 # no repositório.
 atalhos-da-equipe/
 *.url
+ATLAS - *.cmd
 
 # ─────────────────── DADOS BAIXADOS EM EXECUÇÃO ───────────────────
 # A base do IBAMA é rebaixada sozinha a cada rodada. Versionar isso

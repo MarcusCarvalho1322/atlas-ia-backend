@@ -27,10 +27,13 @@ foreach ($par in ($linhaAcessos -split ',')) {
     if ($par -match '^\s*([A-Za-z][A-Za-z0-9_.-]*)\s*:\s*([A-Za-z0-9_\-]{20,})\s*$') {
         $nome  = $Matches[1].Trim()
         $senha = $Matches[2].Trim()
-        $arquivo = Join-Path $destino ("ATLAS - " + $nome + ".url")
+        # .cmd e nao .url: e exatamente o mecanismo dos atalhos que ja funcionam
+        # nesta maquina. O .url depende da associacao de tipo do Windows, que
+        # varia de maquina para maquina; "start" usa o navegador padrao sempre.
+        $arquivo = Join-Path $destino ("ATLAS - " + $nome + ".cmd")
         [System.IO.File]::WriteAllText(
             $arquivo,
-            "[InternetShortcut]`r`nURL=$base#k=$senha`r`n",
+            "@echo off`r`nstart `"`" `"$base#k=$senha`"`r`n",
             (New-Object System.Text.ASCIIEncoding))
         $gerados += $nome
     }
@@ -43,7 +46,7 @@ if ($gerados.Count -eq 0) {
     Write-Host ("  " + $gerados.Count + " atalhos gerados em:") -ForegroundColor Green
     Write-Host "  $destino" -ForegroundColor Green
     Write-Host ""
-    foreach ($n in $gerados) { Write-Host ("   ATLAS - " + $n + ".url") }
+    foreach ($n in $gerados) { Write-Host ("   ATLAS - " + $n + ".cmd") }
     Write-Host ""
     Write-Host "  Cada arquivo carrega a senha da pessoa. Mande APENAS o arquivo dela." -ForegroundColor DarkGray
 }
