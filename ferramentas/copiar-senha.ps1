@@ -1,4 +1,4 @@
-$envp = "C:\Users\marcu\ATLAS-IA\atlas-ia-app\.env"
+$envp = "$env:USERPROFILE\ATLAS-IA\frontend\.env"
 Write-Host ""
 if (-not (Test-Path $envp)) {
     Write-Host "  Nao encontrei o arquivo .env em:" -ForegroundColor Red
