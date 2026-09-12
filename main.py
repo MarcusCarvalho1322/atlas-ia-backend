@@ -144,7 +144,27 @@ def console():
     """
     if not APP_HTML.exists():
         raise HTTPException(404, "Front-end não encontrado nesta instalação.")
-    return FileResponse(APP_HTML, media_type="text/html; charset=utf-8")
+    # Sem Cache-Control, o navegador aplica cache heurístico: guarda a página
+    # por conta própria e pode servi-la do disco SEM perguntar ao servidor. Na
+    # prática, alguém da equipe continuava vendo uma versão antiga do console
+    # depois de uma correção já publicada — e não havia como saber disso pela
+    # tela. "no-cache" não proíbe guardar; obriga a revalidar a cada abertura,
+    # o que com o ETag custa um 304 e nada de banda.
+    # O carimbo de versão é injetado aqui, a partir da data do próprio arquivo.
+    # Sem ele, "está atualizado?" só se responde abrindo o código — e a pergunta
+    # apareceu toda vez que alguém relatou um problema já corrigido.
+    from datetime import datetime, timezone, timedelta
+    from fastapi.responses import HTMLResponse
+
+    carimbo = datetime.fromtimestamp(
+        APP_HTML.stat().st_mtime, tz=timezone.utc
+    ).astimezone(timezone(timedelta(hours=-3))).strftime("%d/%m %Hh%M")
+
+    html = APP_HTML.read_text(encoding="utf-8").replace("{{VERSAO}}", carimbo)
+    return HTMLResponse(
+        html,
+        headers={"Cache-Control": "no-cache, must-revalidate"},
+    )
 
 
 @app.on_event("startup")
