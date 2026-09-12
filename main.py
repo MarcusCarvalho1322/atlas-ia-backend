@@ -120,26 +120,31 @@ def health():
     return {"ok": True}
 
 
-CONSOLE_HTML = Path(__file__).parent / "web" / "console-prospeccao.html"
+APP_HTML = Path(__file__).parent / "web" / "atlas.html"
 
 
+@app.get("/app")
 @app.get("/console")
 def console():
     """
-    Serve o console de prospecção como página de verdade.
+    Serve o front-end único.
 
-    Antes ele era um arquivo solto no computador de uma pessoa. Para a equipe
-    usar, alguém teria de enviar o arquivo a cada um — e cada cópia envelhecia
-    sozinha, sem ninguém perceber que estava vendo uma versão antiga. Servido
-    aqui, todos abrem um endereço só e sempre a versão publicada.
+    Eram duas telas: o console de prospecção, na nuvem, e o aplicativo de
+    análise, que só rodava no computador de uma pessoa por linha de comando.
+    Quem não é desenvolvedor nunca abriria o segundo — então, na prática,
+    metade do sistema não existia para a equipe. Agora é uma página só, com
+    entrada por senha, e as duas coisas viram abas dela.
 
-    A página em si não guarda segredo nenhum: o endereço e a senha são digitados
-    por quem abre e ficam no navegador dele. Sem senha válida, nenhuma rota de
-    dados responde.
+    /console continua valendo porque é o endereço que a equipe já recebeu.
+
+    A página não guarda segredo nenhum: o endereço e a senha são digitados por
+    quem abre e ficam no navegador dele. Sem senha válida, nenhuma rota de
+    dados responde — e a camada jurídica vive noutra rota, que este front-end
+    não chama.
     """
-    if not CONSOLE_HTML.exists():
-        raise HTTPException(404, "Console não encontrado nesta instalação.")
-    return FileResponse(CONSOLE_HTML, media_type="text/html; charset=utf-8")
+    if not APP_HTML.exists():
+        raise HTTPException(404, "Front-end não encontrado nesta instalação.")
+    return FileResponse(APP_HTML, media_type="text/html; charset=utf-8")
 
 
 @app.on_event("startup")

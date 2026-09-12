@@ -1,0 +1,794 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ATLAS · Inteligência Forense</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+:root{
+  --bg:#12140f; --surface:#1a1d16; --surface-2:#22261d; --line:#33382a;
+  --ink:#e8e6dc; --ink-dim:#a3a696; --ink-faint:#6f7364;
+  --amber:#d4a03c; --amber-dim:#8a6a28;
+  --urgent:#d9603f; --urgent-bg:#2e1a15;
+  --ok:#7ba05b; --ok-bg:#1d2618; --info:#5b8aa0; --info-bg:#16232a;
+  --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:15px/1.55 -apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
+input,select,button,textarea{font:inherit;background:var(--surface-2);color:var(--ink);
+  border:1px solid var(--line);border-radius:6px;padding:7px 11px}
+input,textarea{font-family:var(--mono);font-size:12.5px}
+button{cursor:pointer;font-weight:600}
+button.primary{background:var(--amber);color:#1a1509;border-color:var(--amber)}
+button.primary:hover{filter:brightness(1.1)}
+button:disabled{opacity:.5;cursor:not-allowed}
+a{color:var(--amber)}
+.mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+
+/* ---------- ENTRADA ---------- */
+#entrada{position:fixed;inset:0;background:var(--bg);display:flex;
+  align-items:center;justify-content:center;padding:24px;z-index:50}
+.porta{width:100%;max-width:380px}
+.porta .marca{font-weight:800;font-size:30px;letter-spacing:1px;margin-bottom:4px}
+.porta .marca span{color:var(--amber)}
+.porta .sub{font-family:var(--mono);font-size:11px;letter-spacing:2px;
+  text-transform:uppercase;color:var(--ink-faint);margin-bottom:32px}
+.porta label{display:block;font-family:var(--mono);font-size:10.5px;letter-spacing:.9px;
+  text-transform:uppercase;color:var(--ink-faint);margin:16px 0 6px}
+.porta input{width:100%;padding:11px 13px;font-size:14px}
+.porta button{width:100%;margin-top:22px;padding:12px}
+.porta .nota{font-size:12.5px;color:var(--ink-faint);margin-top:20px;line-height:1.6}
+.porta .falha{background:var(--urgent-bg);border:1px solid var(--urgent);color:var(--urgent);
+  border-radius:8px;padding:11px 14px;font-size:13px;margin-top:16px}
+
+/* ---------- ESTRUTURA ---------- */
+header{border-bottom:1px solid var(--line);background:var(--surface);
+  padding:0 24px;display:flex;gap:24px;align-items:center;flex-wrap:wrap}
+.brand{font-weight:800;letter-spacing:.5px;padding:14px 0}
+.brand span{color:var(--amber)}
+.brand small{display:block;font-weight:400;font-size:10px;color:var(--ink-faint);
+  letter-spacing:1.5px;text-transform:uppercase}
+nav.modulos{display:flex;gap:2px;flex:1;flex-wrap:wrap}
+nav.modulos button{background:none;border:none;border-bottom:2px solid transparent;
+  border-radius:0;padding:18px 15px;color:var(--ink-dim);font-weight:600;font-size:14px}
+nav.modulos button:hover{color:var(--ink)}
+nav.modulos button.on{color:var(--amber);border-bottom-color:var(--amber)}
+.quem{margin-left:auto;display:flex;gap:10px;align-items:center;
+  font-family:var(--mono);font-size:11.5px;color:var(--ink-faint)}
+.quem button{padding:5px 9px;font-size:11px;font-weight:400}
+main{padding:24px;max-width:1400px;margin:0 auto}
+h2.titulo{font-size:21px;margin:0 0 4px}
+p.lede{color:var(--ink-dim);font-size:14px;margin:0 0 22px;max-width:70ch}
+
+/* ---------- COMPONENTES ---------- */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px;margin-bottom:24px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px}
+.kpi .lbl{font-family:var(--mono);font-size:10.5px;text-transform:uppercase;letter-spacing:.9px;color:var(--ink-faint)}
+.kpi .val{font-size:26px;font-weight:800;margin-top:6px;font-variant-numeric:tabular-nums}
+.kpi .sub{font-size:12px;color:var(--ink-dim);margin-top:2px}
+.kpi.urgent{border-color:var(--urgent)} .kpi.urgent .val{color:var(--urgent)}
+.tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap}
+.tab{padding:7px 13px;border:1px solid var(--line);border-radius:20px;cursor:pointer;
+  font-size:13px;color:var(--ink-dim);background:var(--surface)}
+.tab.on{background:var(--amber);color:#1a1509;border-color:var(--amber);font-weight:600}
+.tab b{font-family:var(--mono)}
+.filtros{display:flex;gap:14px;align-items:center;margin-bottom:14px;flex-wrap:wrap;font-size:13px}
+.wrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{width:100%;border-collapse:collapse;font-size:13.5px;min-width:820px}
+th{text-align:left;padding:11px 12px;font-family:var(--mono);font-size:10.5px;
+  letter-spacing:.8px;text-transform:uppercase;color:var(--ink-faint);
+  border-bottom:1px solid var(--line);background:var(--surface-2)}
+td{padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+tr:last-child td{border-bottom:none}
+tr:hover td{background:var(--surface-2)}
+.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.pill{display:inline-block;padding:2px 8px;border-radius:11px;font-size:10.5px;
+  font-family:var(--mono);font-weight:600;white-space:nowrap}
+.p-urg{background:var(--urgent-bg);color:var(--urgent)}
+.p-amber{background:#2e2515;color:var(--amber)}
+.p-info{background:var(--info-bg);color:var(--info)}
+.p-ok{background:var(--ok-bg);color:var(--ok)}
+.sinal{font-size:12px;color:var(--ink-dim);margin-top:3px}
+.vazio{padding:44px;text-align:center;color:var(--ink-faint)}
+.erro{background:var(--urgent-bg);border:1px solid var(--urgent);color:var(--urgent);
+  padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:13.5px}
+.aviso{background:var(--surface-2);border:1px solid var(--line);color:var(--ink);
+  padding:12px 16px;border-radius:8px;margin-bottom:16px;font-size:13.5px}
+.filtrado{background:#2e2515;border:1px solid var(--amber);color:var(--amber);
+  padding:10px 14px;border-radius:8px;margin-bottom:14px;font-size:13px;
+  display:flex;gap:12px;align-items:center;flex-wrap:wrap}
+.filtrado button{padding:4px 10px;font-size:11.5px}
+.rodape{margin-top:24px;padding-top:16px;border-top:1px solid var(--line);
+  font-size:11.5px;color:var(--ink-faint);line-height:1.7}
+.acoes{display:flex;gap:4px;flex-wrap:wrap}
+.acoes button{padding:4px 9px;font-size:11px;font-weight:500}
+.carregando{padding:40px;text-align:center;color:var(--ink-faint);font-family:var(--mono);font-size:13px}
+
+/* ---------- ANALISE DO CASO ---------- */
+.painel{background:var(--surface);border:1px solid var(--line);border-radius:10px;
+  padding:20px;margin-bottom:18px}
+.painel h3{margin:0 0 14px;font-size:15px}
+.grade{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:12px}
+.grade label{display:block;font-family:var(--mono);font-size:10px;letter-spacing:.8px;
+  text-transform:uppercase;color:var(--ink-faint);margin-bottom:5px}
+.grade input,.grade select{width:100%}
+.modulo{border:1px solid var(--line);border-radius:10px;margin-bottom:12px;
+  background:var(--surface);overflow:hidden}
+.modulo .cab{padding:13px 17px;background:var(--surface-2);cursor:pointer;
+  display:flex;gap:12px;align-items:center;border-bottom:1px solid var(--line)}
+.modulo .cab .cod{font-family:var(--mono);font-size:12px;color:var(--amber);font-weight:600}
+.modulo .cab .nome{font-weight:600;font-size:14px;flex:1}
+.modulo .cab .conta{font-family:var(--mono);font-size:11.5px;color:var(--ink-faint)}
+.modulo .itens{padding:4px 0}
+.modulo.fechado .itens{display:none}
+.item{padding:12px 17px;border-bottom:1px solid var(--line);display:flex;
+  gap:14px;align-items:flex-start;flex-wrap:wrap}
+.item:last-child{border-bottom:none}
+.item .txt{flex:1;min-width:260px}
+.item .id{font-family:var(--mono);font-size:11px;color:var(--ink-faint)}
+.item .perg{font-size:13.5px;margin-top:3px}
+.resp{display:flex;gap:4px}
+.resp button{padding:5px 11px;font-size:11.5px;font-weight:600;min-width:52px}
+.resp button.sel-ok{background:var(--ok);color:#0f160c;border-color:var(--ok)}
+.resp button.sel-fail{background:var(--urgent);color:#fff;border-color:var(--urgent)}
+.resp button.sel-na{background:var(--ink-faint);color:#12140f;border-color:var(--ink-faint)}
+.laudo{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:22px}
+.laudo .cabecalho{display:flex;gap:18px;align-items:baseline;flex-wrap:wrap;
+  border-bottom:1px solid var(--line);padding-bottom:14px;margin-bottom:16px}
+.laudo .indice{font-size:38px;font-weight:800;font-family:var(--mono);line-height:1}
+.achado{border-left:3px solid var(--line);padding:11px 15px;margin-bottom:9px;
+  background:var(--surface-2);border-radius:0 7px 7px 0}
+.achado.DETERMINANTE{border-left-color:var(--urgent)}
+.achado.RELEVANTE{border-left-color:var(--amber)}
+.achado.ACESSORIO{border-left-color:var(--info)}
+.achado .t{font-weight:600;font-size:13.5px}
+.achado .v{font-size:12.5px;color:var(--ink-dim);margin-top:4px}
+.achado .p{font-size:12.5px;color:var(--ink-dim);margin-top:5px}
+@media(max-width:700px){
+  nav.modulos button{padding:14px 10px;font-size:13px}
+  main{padding:16px}
+}
+</style>
+</head>
+<body>
+
+<!-- ══════════════ PORTA DE ENTRADA ══════════════ -->
+<div id="entrada">
+  <div class="porta">
+    <div class="marca">ATLAS<span>.</span></div>
+    <div class="sub">Inteligência Forense</div>
+
+    <label for="pApi">Endereço do servidor</label>
+    <input id="pApi" value="https://atlas-geo.onrender.com" spellcheck="false">
+
+    <label for="pTok">Sua senha de acesso</label>
+    <input id="pTok" type="password" placeholder="cole aqui" spellcheck="false"
+           onkeydown="if(event.key==='Enter')entrar()">
+
+    <button class="primary" id="btnEntrar" onclick="entrar()">Entrar</button>
+    <div id="pFalha"></div>
+
+    <div class="nota">
+      Cada pessoa tem a própria senha. A primeira entrada pode levar até um
+      minuto — o servidor acorda sozinho. Depois fica guardada neste navegador.
+    </div>
+  </div>
+</div>
+
+<!-- ══════════════ APLICAÇÃO ══════════════ -->
+<div id="app" hidden>
+  <header>
+    <div class="brand">ATLAS<span>.</span><small>Inteligência Forense</small></div>
+    <nav class="modulos" id="nav"></nav>
+    <div class="quem">
+      <span id="quemSou"></span>
+      <button onclick="sair()">Sair</button>
+    </div>
+  </header>
+  <main>
+    <div id="msg"></div>
+    <div id="tela"></div>
+  </main>
+</div>
+
+<script>
+'use strict';
+
+// ═══════════════════════════════════════════════════════════════════════
+// Uma tela só. Antes eram duas: o console da equipe vivia na nuvem e o
+// aplicativo de análise só rodava no computador de uma pessoa, por linha de
+// comando. Quem não é desenvolvedor nunca ia abrir o segundo — então, na
+// prática, metade do sistema não existia para a equipe.
+// ═══════════════════════════════════════════════════════════════════════
+
+const $ = s => document.querySelector(s);
+const MODULOS = [
+  ['painel',    'Painel'],
+  ['mineracao', 'Mineração'],
+  ['carteira',  'Carteira'],
+  ['analise',   'Análise do Caso'],
+  ['territorio','Território'],
+];
+
+let ATUAL = 'painel';
+let BOLETIM = null;       // boletim do dia
+let CATALOGO = null;      // os 60 itens de verificação
+let RESPOSTAS = {};       // {id: 'ok'|'fail'|'na'}
+let LAUDO = null;
+let ABA = 'urgencia';     // aba dentro da Carteira
+let FECHADOS = {};        // módulos recolhidos na Análise
+
+const SECOES = [
+  ['urgencia',                 'Prazo vencendo'],
+  ['novos_hoje',               'Novos hoje'],
+  ['decurso_superior_a_3_anos','Decurso > 3 anos'],
+  ['inversao_temporal',        'Inversão temporal'],
+];
+
+// ───────────────────────── infraestrutura ─────────────────────────
+function cfg(){
+  return { api:(localStorage.atlasApi||'').replace(/\/$/,''), tok:localStorage.atlasTok||'' };
+}
+function brl(v){ return v==null?'—':'R$ '+Number(v).toLocaleString('pt-BR',{maximumFractionDigits:0}); }
+function brlExato(v){ return v==null?'—':'R$ '+Number(v).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function esc(s){ return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
+function erro(m){ $('#msg').innerHTML = m ? `<div class="erro">${m}</div>` : ''; }
+function aviso(m){ $('#msg').innerHTML = m ? `<div class="aviso">${m}</div>` : ''; }
+
+async function api(caminho, opt={}){
+  const {api,tok} = cfg();
+  const r = await fetch(api + caminho, {
+    ...opt,
+    headers: { ...(opt.headers||{}), ...(tok?{Authorization:'Bearer '+tok}:{}) }
+  });
+  if(!r.ok){
+    if(r.status === 401){ sair('Sua senha não foi aceita. Entre de novo.'); throw new Error('401'); }
+    const t = await r.text();
+    throw new Error(`${r.status} — ${t.slice(0,200)}`);
+  }
+  return r.json();
+}
+
+// ───────────────────────── entrar e sair ─────────────────────────
+async function entrar(){
+  const b = $('#btnEntrar');
+  const api_ = $('#pApi').value.trim().replace(/\/$/,'');
+  const tok  = $('#pTok').value.trim();
+  $('#pFalha').innerHTML = '';
+  if(!tok){ $('#pFalha').innerHTML = '<div class="falha">Cole a sua senha de acesso.</div>'; return; }
+
+  b.disabled = true; b.textContent = 'Entrando…';
+  localStorage.atlasApi = api_; localStorage.atlasTok = tok;
+  try{
+    // O catálogo é a rota mais barata que exige senha: serve de conferência.
+    CATALOGO = await api('/api/catalogo');
+    $('#entrada').hidden = true;
+    $('#app').hidden = false;
+    $('#quemSou').textContent = new URL(api_).hostname;
+    montarNav();
+    await irPara('painel');
+  }catch(e){
+    localStorage.removeItem('atlasTok');
+    const m = String(e.message).startsWith('401')
+      ? 'Senha não aceita. Confira se colou a linha inteira, sem espaço sobrando.'
+      : 'Não consegui falar com o servidor: ' + esc(e.message);
+    $('#pFalha').innerHTML = `<div class="falha">${m}</div>`;
+  }
+  b.disabled = false; b.textContent = 'Entrar';
+}
+
+function sair(motivo){
+  localStorage.removeItem('atlasTok');
+  $('#app').hidden = true;
+  $('#entrada').hidden = false;
+  $('#pTok').value = '';
+  $('#pFalha').innerHTML = motivo ? `<div class="falha">${esc(motivo)}</div>` : '';
+}
+
+function montarNav(){
+  $('#nav').innerHTML = MODULOS.map(([k,rot]) =>
+    `<button class="${ATUAL===k?'on':''}" onclick="irPara('${k}')">${rot}</button>`).join('');
+}
+
+async function irPara(k){
+  ATUAL = k; montarNav(); erro('');
+  $('#tela').innerHTML = '<div class="carregando">carregando…</div>';
+  try{
+    if(k === 'painel')     await telaPainel();
+    if(k === 'mineracao')  await telaMineracao();
+    if(k === 'carteira')   await telaCarteira();
+    if(k === 'analise')    await telaAnalise();
+    if(k === 'territorio') await telaTerritorio();
+  }catch(e){
+    $('#tela').innerHTML = '';
+    erro('Falhou ao abrir esta tela: ' + esc(e.message));
+  }
+}
+
+async function garantirBoletim(forcar){
+  if(!BOLETIM || forcar) BOLETIM = await api('/api/prospeccao/boletim?topo=200');
+  return BOLETIM;
+}
+
+// ───────────────────────── 1. PAINEL ─────────────────────────
+async function telaPainel(){
+  const b = await garantirBoletim();
+  let ue = null;
+  try{ ue = await api('/api/prospeccao/ultima-execucao'); }catch(e){}
+
+  $('#tela').innerHTML = `
+    <h2 class="titulo">Painel do dia</h2>
+    <p class="lede">Retrato da carteira em ${esc(b.data)}. Os números vêm da base
+       pública do IBAMA, republicada diariamente.</p>
+    <div class="kpis">
+      <div class="kpi"><div class="lbl">Carteira ativa</div>
+        <div class="val">${b.carteira_ativa.toLocaleString('pt-BR')}</div>
+        <div class="sub">${brl(b.valor_em_acompanhamento)} em multas</div></div>
+      <div class="kpi urgent"><div class="lbl">Prazo vencendo</div>
+        <div class="val">${b.urgencia.total}</div>
+        <div class="sub">${brl(b.urgencia.valor)}</div></div>
+      <div class="kpi"><div class="lbl">Novos hoje</div>
+        <div class="val">${b.novos_hoje.total}</div>
+        <div class="sub">${brl(b.novos_hoje.valor)}</div></div>
+      <div class="kpi"><div class="lbl">Decurso > 3 anos</div>
+        <div class="val">${b.decurso_superior_a_3_anos.total}</div>
+        <div class="sub">${brl(b.decurso_superior_a_3_anos.valor)}</div></div>
+      <div class="kpi"><div class="lbl">Inversão temporal</div>
+        <div class="val">${b.inversao_temporal.total}</div>
+        <div class="sub">${brl(b.inversao_temporal.valor)}</div></div>
+    </div>
+
+    <div class="painel">
+      <h3>Por onde começar</h3>
+      <p style="margin:0 0 14px;color:var(--ink-dim);font-size:13.5px">
+        Os <b style="color:var(--urgent)">${b.urgencia.total} casos com prazo vencendo</b>
+        são os únicos com relógio correndo — prazo de defesa administrativa que
+        fecha em dias. O resto da carteira espera; esses não.</p>
+      <div class="acoes">
+        <button class="primary" onclick="ABA='urgencia';irPara('carteira')">Ver os urgentes</button>
+        <button onclick="irPara('mineracao')">Rodar mineração</button>
+        <button onclick="irPara('analise')">Analisar um caso</button>
+      </div>
+    </div>
+
+    <div class="painel">
+      <h3>Rotina automática</h3>
+      <div class="mono" style="font-size:12.5px;color:var(--ink-dim);line-height:1.9">
+        Mineração diária agendada para ${ue && ue.agendada_para_hora_utc ? esc(ue.agendada_para_hora_utc)+':00 UTC' : '—'}
+        (${ue && ue.agendada_para_hora_utc ? (Number(ue.agendada_para_hora_utc)-3+24)%24 : '—'}h de Brasília)<br>
+        Última execução registrada: ${ue && ue.quando ? esc(ue.quando) : 'sem registro em memória desde o último reinício'}
+      </div>
+    </div>
+
+    <div class="rodape">
+      Fonte: ${esc(b.fonte)}<br>${esc(b.aviso||'')}
+    </div>`;
+}
+
+// ───────────────────────── 2. MINERAÇÃO ─────────────────────────
+async function telaMineracao(){
+  const b = await garantirBoletim();
+  $('#tela').innerHTML = `
+    <h2 class="titulo">Mineração</h2>
+    <p class="lede">Baixa o pacote do dia do IBAMA, concilia com a carteira e
+       recalcula os sinais. Roda sozinha toda madrugada — este botão é para
+       quando você quiser antecipar.</p>
+
+    <div class="painel">
+      <h3>Rodar agora</h3>
+      <p style="margin:0 0 14px;color:var(--ink-dim);font-size:13.5px">
+        Leva cerca de um minuto. A carteira e o funil não são apagados: casos já
+        marcados como contatado, descartado ou cliente mantêm o status.</p>
+      <button class="primary" id="btnMinerar" onclick="rodarMineracao()">Rodar mineração</button>
+      <div id="resultadoMin" style="margin-top:18px"></div>
+    </div>
+
+    <div class="painel">
+      <h3>O que a mineração procura</h3>
+      <div class="wrap"><table style="min-width:0">
+        <tr><th>Sinal</th><th>O que significa</th></tr>
+        <tr><td class="mono">PRAZO_DEFESA_ABERTO</td><td>Prazo de defesa administrativa ainda em curso — o único com relógio correndo</td></tr>
+        <tr><td class="mono">DECURSO_FATO_AUTO</td><td>Muito tempo entre o fato e a lavratura do auto</td></tr>
+        <tr><td class="mono">INVERSAO_TEMPORAL</td><td>Datas fora de ordem no próprio registro do IBAMA</td></tr>
+        <tr><td class="mono">SEM_DATA_CIENCIA</td><td>Não consta quando o autuado foi notificado</td></tr>
+        <tr><td class="mono">SEM_COORDENADA</td><td>Sem coordenada — impede o cruzamento com satélite</td></tr>
+        <tr><td class="mono">SEM_VALOR</td><td>O registro público não informa o valor da multa</td></tr>
+      </table></div>
+      <p style="margin:14px 0 0;color:var(--ink-faint);font-size:12.5px">
+        São constatações aritméticas sobre o registro público. Não constituem
+        qualificação jurídica nem avaliação de mérito do auto.</p>
+    </div>`;
+}
+
+async function rodarMineracao(){
+  const b = $('#btnMinerar');
+  b.disabled = true; b.textContent = 'Minerando…';
+  $('#resultadoMin').innerHTML = '<div class="carregando">baixando o pacote do IBAMA…</div>';
+  try{
+    const r = await api('/api/prospeccao/rotina-diaria?topo=200', {method:'POST'});
+    BOLETIM = r.boletim;
+    const s = r.sincronizacao;
+    const nada = !s.novos && !s.alterados;
+    $('#resultadoMin').innerHTML = `
+      <div class="aviso" style="margin:0">
+        <b>Mineração concluída.</b>
+        ${nada
+          ? ' A base do IBAMA não mudou desde a última execução — nenhum auto novo ou alterado. A carteira continua íntegra.'
+          : ` ${s.novos} auto(s) novo(s) e ${s.alterados} alterado(s) na base.`}
+      </div>
+      <div class="kpis" style="margin:16px 0 0">
+        <div class="kpi"><div class="lbl">Casos na base</div><div class="val">${s.casos_na_base.toLocaleString('pt-BR')}</div></div>
+        <div class="kpi"><div class="lbl">Novos</div><div class="val">${s.novos}</div></div>
+        <div class="kpi urgent"><div class="lbl">Prazo vencendo</div><div class="val">${r.boletim.urgencia.total}</div>
+          <div class="sub">${brl(r.boletim.urgencia.valor)}</div></div>
+      </div>
+      <div class="acoes" style="margin-top:16px">
+        <button class="primary" onclick="ABA='urgencia';irPara('carteira')">Ver os urgentes</button>
+      </div>`;
+  }catch(e){
+    $('#resultadoMin').innerHTML = `<div class="erro" style="margin:0">Falhou: ${esc(e.message)}</div>`;
+  }
+  b.disabled = false; b.textContent = 'Rodar mineração';
+}
+
+// ───────────────────────── 3. CARTEIRA ─────────────────────────
+async function telaCarteira(){
+  await garantirBoletim();
+  $('#tela').innerHTML = `
+    <h2 class="titulo">Carteira</h2>
+    <p class="lede">Os casos vivos, organizados pelo sinal que os torna
+       relevantes. O nome do autuado não aparece aqui e o documento vem
+       mascarado.</p>
+    <div class="tabs" id="tabs"></div>
+    <div class="filtros">
+      <label>UF <input id="fUf" size="3" placeholder="MT" oninput="renderCarteira()"></label>
+      <label>Multa mínima R$ <input id="fVal" size="10" placeholder="500000" oninput="renderCarteira()"></label>
+      <span id="contagem" class="mono" style="color:var(--ink-faint);font-size:12px"></span>
+    </div>
+    <div id="filtroAtivo"></div>
+    <div class="wrap"><table>
+      <thead><tr>
+        <th>Auto</th><th>Local</th><th class="num">Multa</th><th class="num">Prazo</th>
+        <th>Constatações</th><th>Doc.</th><th>Status</th><th></th>
+      </tr></thead>
+      <tbody id="linhas"></tbody>
+    </table></div>
+    <div class="rodape" id="rodapeCarteira"></div>`;
+  renderCarteira();
+}
+
+function limparFiltros(){ $('#fUf').value=''; $('#fVal').value=''; renderCarteira(); }
+
+function renderCarteira(){
+  const b = BOLETIM; if(!b) return;
+  $('#tabs').innerHTML = SECOES.map(([k,rot]) =>
+    `<div class="tab ${ABA===k?'on':''}" onclick="ABA='${k}';renderCarteira()">${rot} <b>${b[k].total}</b></div>`).join('');
+
+  const uf   = $('#fUf').value.trim().toUpperCase();
+  const vmin = parseFloat($('#fVal').value) || 0;
+  const carregados = (b[ABA].casos||[]).length;
+  const total = b[ABA].total;
+  const casos = (b[ABA].casos||[])
+    .filter(c => !uf || (c.uf||'') === uf)
+    .filter(c => (c.valor||0) >= vmin);
+
+  $('#contagem').textContent = `— exibindo ${casos.length} de ${carregados}`
+    + (carregados < total ? ` (${total} no total)` : '');
+
+  const ativos = [];
+  if(uf)   ativos.push(`UF = ${esc(uf)}`);
+  if(vmin) ativos.push(`multa mínima ${brl(vmin)}`);
+  $('#filtroAtivo').innerHTML = ativos.length
+    ? `<div class="filtrado"><span>Filtro ativo: <b>${ativos.join(' · ')}</b> — `
+      + `${casos.length} de ${carregados} caso(s) sendo exibido(s).</span>`
+      + `<button onclick="limparFiltros()">Limpar filtros</button></div>`
+    : '';
+
+  $('#linhas').innerHTML = casos.length ? casos.map(c => {
+    const d = c.dias_para_defesa;
+    const prazo = d==null ? '<span class="mono" style="color:var(--ink-faint)">—</span>'
+      : d < 0 ? '<span class="pill p-info">vencido</span>'
+      : `<span class="pill ${d<=5?'p-urg':'p-amber'}">${d}d</span>`;
+    const sinais = (c.sinais||[]).map(s => `· ${esc(s.constatacao)}`).join('<br>');
+    return `<tr>
+      <td><span class="mono">${esc(c.num_auto)}</span>
+          <div class="sinal mono">${esc(c.processo||'')}</div></td>
+      <td>${esc(c.uf||'—')} · ${esc(c.municipio||'—')}
+          <div class="sinal">${esc(c.bioma||'')} ${c.tipo_infracao?'· '+esc(c.tipo_infracao):''}</div></td>
+      <td class="num">${brlExato(c.valor)}</td>
+      <td class="num">${prazo}</td>
+      <td style="font-size:12.5px;color:var(--ink-dim)">${sinais||'—'}</td>
+      <td><span class="mono" style="font-size:11.5px">${esc(c.documento_mascarado||'—')}</span>
+          <div class="sinal mono">${esc(c.tipo_pessoa||'')}</div></td>
+      <td><span class="pill ${c.status==='cliente'?'p-ok':c.status==='descartado'?'p-info':'p-amber'}">${esc(c.status)}</span></td>
+      <td><div class="acoes">
+            <button onclick="mover('${esc(c.num_auto)}','selecionado')">Selecionar</button>
+            <button onclick="mover('${esc(c.num_auto)}','contatado')">Contatado</button>
+            <button onclick="mover('${esc(c.num_auto)}','descartado')">Descartar</button>
+            <button onclick="verContato('${esc(c.num_auto)}')">Contato</button>
+          </div>
+          <div id="ct-${esc(c.num_auto)}"></div></td>
+    </tr>`;
+  }).join('') : '<tr><td colspan="8" class="vazio">Nenhum caso com estes filtros.</td></tr>';
+
+  $('#rodapeCarteira').innerHTML = `
+    Fonte: ${esc(b.fonte||'IBAMA — Dados Abertos')}<br>
+    Sinais aritméticos apurados sobre o registro público. Não constituem
+    qualificação jurídica nem avaliação de mérito.<br>
+    Boletim de ${esc(b.data)}. O nome do autuado não é exibido; o documento aparece mascarado.`;
+}
+
+async function mover(numAuto, status){
+  try{
+    await api('/api/prospeccao/'+encodeURIComponent(numAuto), {
+      method:'PATCH', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({status})
+    });
+    await garantirBoletim(true);
+    renderCarteira();
+  }catch(e){ erro('Não consegui mover o caso: ' + esc(e.message)); }
+}
+
+async function verContato(numAuto){
+  const alvo = $('#ct-'+numAuto);
+  if(!alvo) return;
+  alvo.innerHTML = '<div class="sinal">consultando a Receita Federal…</div>';
+  try{
+    const r = await api('/api/prospeccao/'+encodeURIComponent(numAuto)+'/contato');
+    const c = r.contato || {};
+    if(!c.disponivel){
+      alvo.innerHTML = `<div class="sinal">${esc(c.motivo||c.erro||'Sem fonte pública de contato para pessoa física.')}</div>`;
+      return;
+    }
+    alvo.innerHTML = `<div class="sinal" style="margin-top:7px;line-height:1.7">
+      <b style="color:var(--ink)">${esc(c.razao_social||'—')}</b><br>
+      ${esc(c.situacao_cadastral||'')} ${c.atividade_principal?'· '+esc(c.atividade_principal):''}<br>
+      ${[c.endereco,c.bairro,(c.municipio||'')+'/'+(c.uf||''),c.cep].filter(Boolean).map(esc).join(' · ')}<br>
+      ${(c.telefones||[]).map(esc).join(' · ')} ${c.email?'· '+esc(c.email):''}<br>
+      <span style="color:var(--ink-faint)">${esc(c.fonte||'')}</span>
+    </div>`;
+  }catch(e){ alvo.innerHTML = `<div class="sinal" style="color:var(--urgent)">${esc(e.message)}</div>`; }
+}
+
+// ───────────────────────── 5. TERRITÓRIO ─────────────────────────
+async function telaTerritorio(){
+  const t = await api('/api/prospeccao/territorio');
+  // A forma vem do servidor: {posicao, municipio:"Cidade/UF", autos, valor,
+  // urgentes, acumulado_pct}. O municipio ja traz a UF embutida.
+  const linhas = (t.concentracao||[]).map(m => `<tr>
+      <td class="num mono">${m.posicao}</td>
+      <td>${esc(m.municipio||'—')}</td>
+      <td class="num">${m.autos}</td>
+      <td class="num">${m.urgentes ? `<span class="pill p-urg">${m.urgentes}</span>` : '—'}</td>
+      <td class="num">${brl(m.valor)}</td>
+      <td class="num mono" style="color:var(--ink-faint)">${m.acumulado_pct}%</td>
+    </tr>`).join('');
+  $('#tela').innerHTML = `
+    <h2 class="titulo">Território</h2>
+    <p class="lede">Onde os casos de pessoa física se concentram. Não há fonte
+       pública de contato a partir de CPF — a aproximação aqui é por presença
+       local, não por lista.</p>
+    <div class="aviso">${esc(t.leitura||'')}</div>
+    <div class="wrap"><table>
+      <thead><tr><th class="num">#</th><th>Município</th><th class="num">Autos</th>
+        <th class="num">Urgentes</th><th class="num">Valor</th><th class="num">Acumulado</th></tr></thead>
+      <tbody>${linhas || '<tr><td colspan="6" class="vazio">Sem dados.</td></tr>'}</tbody>
+    </table></div>
+    <div class="rodape">${t.municipios_com_casos} municípios com casos · valor total ${brl(t.valor_total)}</div>`;
+}
+
+// ───────────────────────── 4. ANÁLISE DO CASO ─────────────────────────
+//
+// O aplicativo recebe do servidor a rota do LAUDO TÉCNICO. A qualificação
+// jurídica — tese, taxa de êxito, jurisprudência — vive noutra rota e não
+// trafega até aqui. A separação é imposta no servidor: não é escolha de tela
+// que alguém possa contornar mexendo no navegador.
+
+async function telaAnalise(){
+  if(!CATALOGO) CATALOGO = await api('/api/catalogo');
+  const c = CATALOGO;
+  const porModulo = {};
+  for(const it of c.itens) (porModulo[it.modulo] = porModulo[it.modulo] || []).push(it);
+
+  const blocos = c.modulos.map(m => {
+    const itens = porModulo[m.id] || [];
+    const fechado = FECHADOS[m.id] ? ' fechado' : '';
+    return `<div class="modulo${fechado}" id="mod-${m.id}">
+      <div class="cab" onclick="dobrar('${m.id}')">
+        <span class="cod">${esc(m.id)}</span>
+        <span class="nome">${esc(m.titulo_tecnico || m.titulo)}</span>
+        <span class="conta mono" id="conta-${m.id}"></span>
+      </div>
+      <div class="itens">${itens.map(it => itemHtml(it)).join('')}</div>
+    </div>`;
+  }).join('');
+
+  $('#tela').innerHTML = `
+    <h2 class="titulo">Análise do Caso</h2>
+    <p class="lede">Protocolo de ${c.itens.length} itens em ${c.modulos.length} módulos.
+       Responda o que conseguir conferir nas peças do processo e deixe em branco
+       o que não souber — item não respondido não entra na conta.</p>
+
+    <div class="painel">
+      <h3>Identificação</h3>
+      <div class="grade">
+        <div><label>Número do auto</label><input id="aAuto" placeholder="opcional"></div>
+        <div><label>Valor da multa (R$)</label><input id="aValor" placeholder="220000"></div>
+        <div><label>UF</label><input id="aUf" placeholder="MT" size="3"></div>
+        <div><label>Município</label><input id="aMun" placeholder="opcional"></div>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-bottom:16px">
+      <button class="primary" onclick="gerarLaudo()">Gerar laudo técnico</button>
+      <button onclick="marcarTodos('ok')">Marcar tudo conforme</button>
+      <button onclick="limparRespostas()">Limpar respostas</button>
+      <span class="mono" id="progresso" style="color:var(--ink-faint);font-size:12px"></span>
+    </div>
+
+    <div id="saidaLaudo"></div>
+    ${blocos}`;
+
+  atualizarContagens();
+}
+
+function itemHtml(it){
+  const t = it.tecnico || {};
+  const grav = t.gravidade || it.risco || '';
+  const cor = grav==='DETERMINANTE' ? 'p-urg' : grav==='RELEVANTE' ? 'p-amber' : 'p-info';
+  return `<div class="item" id="it-${esc(it.id)}">
+    <div class="txt">
+      <div class="id">${esc(it.id)} · <span class="pill ${cor}">${esc(grav.toLowerCase())}</span> · peso ${it.peso}</div>
+      <div class="perg">${esc(t.verificacao || it.pergunta)}</div>
+    </div>
+    <div class="resp">
+      <button id="b-${esc(it.id)}-ok"   onclick="responder('${esc(it.id)}','ok')">Sim</button>
+      <button id="b-${esc(it.id)}-fail" onclick="responder('${esc(it.id)}','fail')">Não</button>
+      <button id="b-${esc(it.id)}-na"   onclick="responder('${esc(it.id)}','na')">N/A</button>
+    </div>
+  </div>`;
+}
+
+function responder(id, v){
+  if(RESPOSTAS[id] === v) delete RESPOSTAS[id]; else RESPOSTAS[id] = v;
+  for(const k of ['ok','fail','na']){
+    const b = document.getElementById(`b-${id}-${k}`);
+    if(b) b.className = (RESPOSTAS[id] === k) ? 'sel-'+k : '';
+  }
+  atualizarContagens();
+}
+
+function dobrar(mid){
+  FECHADOS[mid] = !FECHADOS[mid];
+  const el = document.getElementById('mod-'+mid);
+  if(el) el.classList.toggle('fechado', !!FECHADOS[mid]);
+}
+
+function atualizarContagens(){
+  if(!CATALOGO) return;
+  for(const m of CATALOGO.modulos){
+    const itens = CATALOGO.itens.filter(i => i.modulo === m.id);
+    const resp = itens.filter(i => RESPOSTAS[i.id]).length;
+    const falhas = itens.filter(i => RESPOSTAS[i.id] === 'fail').length;
+    const el = document.getElementById('conta-'+m.id);
+    if(el) el.innerHTML = `${resp}/${itens.length}` + (falhas ? ` · <span style="color:var(--urgent)">${falhas} não</span>` : '');
+  }
+  const n = Object.keys(RESPOSTAS).length;
+  const p = document.getElementById('progresso');
+  if(p) p.textContent = `${n} de ${CATALOGO.itens.length} itens respondidos`;
+}
+
+function marcarTodos(v){
+  for(const it of CATALOGO.itens) RESPOSTAS[it.id] = v;
+  telaAnalise().then(() => {
+    for(const id of Object.keys(RESPOSTAS)){
+      const b = document.getElementById(`b-${id}-${RESPOSTAS[id]}`);
+      if(b) b.className = 'sel-'+RESPOSTAS[id];
+    }
+  });
+}
+
+function limparRespostas(){
+  RESPOSTAS = {}; LAUDO = null;
+  telaAnalise();
+}
+
+async function gerarLaudo(){
+  const n = Object.keys(RESPOSTAS).length;
+  if(!n){ erro('Responda ao menos um item antes de gerar o laudo.'); return; }
+  erro('');
+  const valor = parseFloat(String($('#aValor').value).replace(/\./g,'').replace(',','.')) || null;
+  $('#saidaLaudo').innerHTML = '<div class="carregando">gerando o laudo…</div>';
+  try{
+    LAUDO = await api('/api/laudo-tecnico', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({respostas: RESPOSTAS, valorMulta: valor})
+    });
+    renderLaudo();
+    $('#saidaLaudo').scrollIntoView({behavior:'smooth', block:'start'});
+  }catch(e){
+    $('#saidaLaudo').innerHTML = `<div class="erro">Falhou ao gerar: ${esc(e.message)}</div>`;
+  }
+}
+
+function renderLaudo(){
+  const l = LAUDO; if(!l) return;
+  const g = l.distribuicao_por_gravidade || {};
+  const auto = $('#aAuto') ? $('#aAuto').value.trim() : '';
+
+  const alerta = (l.laudo_integro === false) ? `
+    <div class="erro">
+      <b>Este laudo está incompleto.</b> ${l.respostas_ignoradas.total} resposta(s)
+      não foram reconhecidas e ficaram de fora da conta. Não entregue assim —
+      confira a origem das respostas antes.
+    </div>` : '';
+
+  const achados = (l.achados||[]).map(a => `
+    <div class="achado ${esc(a.gravidade_tecnica||'')}">
+      <div class="t">${esc(a.id)} · ${esc(a.constatacao)}</div>
+      <div class="v">${esc(a.verificacao_realizada||'')}</div>
+      ${a.providencia_tecnica ? `<div class="p"><b>Providência:</b> ${esc(a.providencia_tecnica)}</div>` : ''}
+    </div>`).join('');
+
+  $('#saidaLaudo').innerHTML = `
+    ${alerta}
+    <div class="laudo">
+      <div class="cabecalho">
+        <div>
+          <div class="mono" style="font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-faint)">Laudo técnico</div>
+          <div style="font-size:18px;font-weight:700;margin-top:3px">
+            ${auto ? 'Auto '+esc(auto) : 'Sem número de auto informado'}</div>
+        </div>
+        <div style="margin-left:auto;text-align:right">
+          <div class="mono" style="font-size:10.5px;letter-spacing:1px;text-transform:uppercase;color:var(--ink-faint)">Índice de inconformidade</div>
+          <div class="indice" style="color:${l.indice_de_inconformidade>=50?'var(--urgent)':l.indice_de_inconformidade>=25?'var(--amber)':'var(--ink)'}">
+            ${l.indice_de_inconformidade}<span style="font-size:16px;color:var(--ink-faint)">/100</span></div>
+        </div>
+      </div>
+
+      <div class="kpis" style="margin-bottom:20px">
+        <div class="kpi"><div class="lbl">Verificados</div><div class="val">${l.itens_verificados}</div>
+          <div class="sub">de ${l.itens_no_protocolo} do protocolo</div></div>
+        <div class="kpi"><div class="lbl">Conformes</div><div class="val" style="color:var(--ok)">${l.conformes}</div></div>
+        <div class="kpi urgent"><div class="lbl">Não conformes</div><div class="val">${l.nao_conformes}</div></div>
+        <div class="kpi"><div class="lbl">Não aplicáveis</div><div class="val">${l.nao_aplicaveis}</div></div>
+      </div>
+
+      <div class="tabs" style="margin-bottom:18px">
+        <div class="tab" style="cursor:default">Determinantes <b>${g.determinante||0}</b></div>
+        <div class="tab" style="cursor:default">Relevantes <b>${g.relevante||0}</b></div>
+        <div class="tab" style="cursor:default">Acessórios <b>${g.acessorio||0}</b></div>
+      </div>
+
+      ${l.valor_da_multa_em_analise ? `<p style="font-size:13.5px;color:var(--ink-dim)">
+        Valor da multa em análise: <b class="mono" style="color:var(--ink)">${brlExato(l.valor_da_multa_em_analise)}</b></p>` : ''}
+
+      <h3 style="font-size:15px;margin:22px 0 12px">Constatações</h3>
+      ${achados || '<p style="color:var(--ink-faint);font-size:13.5px">Nenhuma não conformidade entre os itens verificados.</p>'}
+
+      <div class="rodape">
+        <b style="color:var(--ink-dim)">Metodologia.</b> ${esc(l.metodologia||'')}<br><br>
+        <b style="color:var(--ink-dim)">Aviso.</b> ${esc(l.aviso||'')}
+      </div>
+
+      <div class="acoes" style="margin-top:18px">
+        <button onclick="window.print()">Imprimir / salvar em PDF</button>
+      </div>
+    </div>`;
+}
+
+// ───────────────────────── partida ─────────────────────────
+window.addEventListener('DOMContentLoaded', () => {
+  const {api:a, tok} = cfg();
+  if(a) $('#pApi').value = a;
+  // Servido pelo próprio backend: o endereço certo é o desta página.
+  else if(location.protocol.startsWith('http')) $('#pApi').value = location.origin;
+  if(tok){ $('#pTok').value = tok; entrar(); }
+});
+</script>
+</body>
+</html>
