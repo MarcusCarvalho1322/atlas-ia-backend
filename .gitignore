@@ -25,6 +25,10 @@ ATLAS - *.cmd
 # A base do IBAMA é rebaixada sozinha a cada rodada. Versionar isso
 # encheria o repositório de centenas de MB que envelhecem em 24h.
 dados_ibama/
+# Agregado da PGFN: derivado de arquivo público de 9 GB, regenerável a
+# qualquer momento pelo procedimento descrito em ferramentas\. Não é segredo,
+# mas também não é código — não tem por que viver no repositório.
+dados_pgfn/
 *.csv
 *.zip
 
