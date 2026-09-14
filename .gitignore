@@ -29,6 +29,10 @@ dados_ibama/
 # qualquer momento pelo procedimento descrito em ferramentas\. Não é segredo,
 # mas também não é código — não tem por que viver no repositório.
 dados_pgfn/
+# Recorte das notificações do IBAMA: 2.313 linhas extraídas de um arquivo
+# público de 113 MB, filtradas pelos processos da carteira. Mesma natureza do
+# agregado da PGFN — derivado, regenerável, e sem lugar no repositório.
+dados_ibama_notif/
 *.csv
 *.zip
 

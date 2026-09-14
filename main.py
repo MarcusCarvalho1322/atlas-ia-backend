@@ -28,7 +28,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from db import Base, engine, get_db, SessionLocal, descrever_banco, garantir_colunas
-from models import Caso, Prospecto, DividaAtiva
+from models import Caso, Prospecto, DividaAtiva, Notificacao
 import geo_service
 import ai_service
 import catalogo
@@ -349,8 +349,79 @@ def pre_verificacao_do_caso(num_auto: str, authorization: Optional[str] = Header
             if divida:
                 escopo = "grupo"
 
+    # Notificações do MESMO processo administrativo. O número do processo do
+    # auto vem formatado (02001.007833/2025-83) e o da notificação vem cru —
+    # a comparação é feita só com os dígitos.
+    notifs = []
+    if p.processo:
+        so = "".join(ch for ch in p.processo if ch.isdigit())
+        if so:
+            notifs = (db.query(Notificacao)
+                        .filter(Notificacao.processo == so)
+                        .order_by(Notificacao.dat_notificacao).limit(10).all())
+
     return preverificacao.pre_verificar(p, janela, familia,
-                                        divida=divida, escopo_divida=escopo)
+                                        divida=divida, escopo_divida=escopo,
+                                        notificacoes=notifs)
+
+
+class CargaNotificacoes(BaseModel):
+    notificacoes: list[dict]
+
+
+@app.post("/api/notificacoes/carregar")
+def carregar_notificacoes(req: CargaNotificacoes,
+                          authorization: Optional[str] = Header(None),
+                          db: Session = Depends(get_db)):
+    """
+    Carrega as notificações do IBAMA cujo processo consta da carteira.
+
+    O arquivo público tem 439.187 notificações e 113 MB. Só 2.314 pertencem a
+    processos que a carteira acompanha — o resto seria peso morto no banco.
+    Como na dívida ativa, a filtragem acontece fora e aqui entra o recorte.
+
+    O NÚMERO DA NOTIFICAÇÃO NÃO É ÚNICO NO ARQUIVO PÚBLICO
+    -------------------------------------------------------
+    Medido no recorte atual: 2.314 linhas para 2.313 números. O número 3U75N76D
+    aparece duas vezes, no mesmo processo, com doze minutos de diferença e com
+    campos COMPLEMENTARES — uma linha traz a forma de entrega e a situação, a
+    outra traz a ordem de fiscalização e a unidade ordenadora. São duas
+    publicações do mesmo ato, não dois atos. Por isso a carga consolida as
+    repetições numa só linha em vez de rejeitá-las, e o dicionário `tocadas`
+    guarda o que já foi criado nesta mesma remessa: a sessão não faz flush
+    automático, de modo que uma consulta não enxergaria a linha recém-criada e
+    o banco recusaria a chave repetida. Hoje é uma ocorrência; o arquivo é
+    republicado a cada trimestre e nada garante que continue sendo.
+    """
+    _checar_auth(authorization)
+    gravadas = 0
+    tocadas: dict = {}
+    for n in req.notificacoes:
+        num = (n.get("num_notificacao") or "").strip()
+        proc = "".join(ch for ch in (n.get("processo") or "") if ch.isdigit())
+        if not num or not proc:
+            continue
+        linha = tocadas.get(num)
+        if linha is None:
+            linha = db.query(Notificacao).filter(Notificacao.num_notificacao == num).first()
+        if not linha:
+            linha = Notificacao(num_notificacao=num, processo=proc)
+            db.add(linha)
+        tocadas[num] = linha
+        linha.processo = proc
+        for campo in ("dat_notificacao", "prazo_apresentacao", "forma_entrega",
+                      "des_ocorrencia", "des_atividade_notificado", "sit_atendida",
+                      "sit_conclusao", "sit_auto_lavrado", "nom_municipio",
+                      "sig_uf", "num_ordem_fiscalizacao", "unid_ordenadora"):
+            if campo in n:
+                setattr(linha, campo, n[campo])
+        gravadas += 1
+    db.commit()
+    # `linhas_recebidas` e `notificacoes_distintas` podem divergir: ver a nota
+    # sobre repetição do número no arquivo público, logo acima.
+    return {"linhas_recebidas": gravadas,
+            "notificacoes_distintas": len(tocadas),
+            "total_na_base": db.query(Notificacao).count()}
 
 
 class CargaDividaAtiva(BaseModel):

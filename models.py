@@ -162,6 +162,65 @@ class DividaAtiva(Base):
                 for c in self.__table__.columns}
 
 
+class Notificacao(Base):
+    """
+    Notificação do IBAMA vinculada ao MESMO PROCESSO do auto.
+
+    POR QUE SÓ O VÍNCULO POR PROCESSO
+    ----------------------------------
+    Medido no arquivo real: 8,3% dos autos da carteira têm notificação com o
+    mesmo NUM_PROCESSO, e 22% têm notificação do mesmo CPF/CNPJ. A tentação é
+    usar os 22%. Seria errado: a mesma pessoa pode ter sido notificada noutro
+    ano, noutro estado, por outro motivo — exibir isso ao lado de uma pergunta
+    sobre a notificação DESTE processo atribuiria ao caso um documento que não
+    é dele. Fica só o processo.
+
+    Nos registros que casam por processo a qualidade é alta: data e prazo em
+    100%, forma de entrega em 93,5%, e a descrição da exigência em 100% — o que
+    o IBAMA cobrou antes de autuar, nas palavras do próprio órgão.
+
+    OS NÚMEROS, COM O DENOMINADOR DE CADA UM
+    -----------------------------------------
+    Duas contagens diferentes convivem aqui e é preciso não confundi-las. O
+    arquivo bruto do IBAMA de 2026 casa por processo com 2.313 notificações em
+    2.174 processos distintos; desses, só os autos que sobrevivem ao filtro de
+    prospecção chegam à carteira. Na carteira medida (10.762 autos, 9.640 com
+    número de processo): 893 autos com notificação — 8,3% da carteira, 9,3%
+    dos que têm processo — e 951 pares auto × notificação.
+
+    UMA ARITMÉTICA QUE QUASE VIROU ERRO
+    ------------------------------------
+    Comparar a lavratura com o vencimento do prazo da notificação parecia
+    acusar dois terços dos autos de terem sido lavrados antes de o prazo
+    vencer. Era artefato: na carteira, 558 dos 951 pares (58,7%) são do MESMO
+    DIA — a mesma fiscalização, com a notificação impondo obrigação futura e o
+    auto punindo fato passado. Depois de exigir que o auto venha DEPOIS da
+    notificação, o achado real cai para 30 autos (3,4% dos 893 com
+    notificação). Outros 46 autos (5,2%) têm auto ANTERIOR à notificação, que
+    é apontamento de ordem dos atos, não de prazo. É isso que o sistema mostra,
+    e nada além disso.
+    """
+    __tablename__ = "notificacoes"
+
+    num_notificacao = Column(String, primary_key=True)
+    processo = Column(String, index=True, nullable=False)
+
+    dat_notificacao = Column(String, nullable=True)
+    prazo_apresentacao = Column(String, nullable=True)
+    forma_entrega = Column(String, nullable=True)
+    des_ocorrencia = Column(String, nullable=True)       # o que o órgão exigiu
+    des_atividade_notificado = Column(String, nullable=True)
+    sit_atendida = Column(String, nullable=True)
+    sit_conclusao = Column(String, nullable=True)
+    sit_auto_lavrado = Column(String, nullable=True)
+    nom_municipio = Column(String, nullable=True)
+    sig_uf = Column(String, nullable=True)
+    num_ordem_fiscalizacao = Column(String, nullable=True)
+    unid_ordenadora = Column(String, nullable=True)
+
+    carregado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class CacheConsulta(Base):
     """
     Cache de consultas a fontes externas.

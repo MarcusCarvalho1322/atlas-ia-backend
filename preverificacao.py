@@ -34,7 +34,7 @@ como ausência no registro, com essas palavras.
 """
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import date, timedelta  # noqa: F401  (timedelta usado nas notificações)
 from typing import Optional
 
 # ── vocabulário de resposta do catálogo ────────────────────────────────────
@@ -246,6 +246,77 @@ def _evidencia_divida(d, escopo: Optional[str] = None) -> list[dict]:
     return ev
 
 
+def _evidencia_notificacao(notifs: list, dt_auto) -> list[dict]:
+    """
+    Notificações do MESMO PROCESSO administrativo do auto.
+
+    O vínculo é o número do processo, e só ele. Notificação do mesmo CPF/CNPJ
+    noutro processo cobre 22% da carteira contra 8,3% do vínculo por processo —
+    mas seria outro documento, de outro caso, exibido ao lado de uma pergunta
+    sobre este. Cobertura maior não compra nada quando o que ela acrescenta
+    está errado.
+
+    A comparação de datas aqui carrega uma correção importante. Confrontar a
+    lavratura com o vencimento do prazo da notificação acusava dois terços dos
+    autos. Era artefato: 558 dos 951 pares auto × notificação da carteira
+    (58,7%) são do MESMO DIA, lados de uma mesma fiscalização — a notificação
+    impondo obrigação futura, o auto punindo fato passado. O apontamento de
+    prazo só existe quando o auto vem DEPOIS da notificação e ainda assim antes
+    de o prazo concedido vencer: 30 autos, 3,4% dos 893 que têm notificação.
+    Um segundo apontamento, de natureza diferente, cobre 46 autos (5,2%): o
+    auto é ANTERIOR à notificação, o que é questão de ordem dos atos e não de
+    prazo. Os dois são exibidos com redações distintas, e nunca somados.
+    """
+    if not notifs:
+        return []
+    ev: list[dict] = []
+    base = _d(dt_auto)
+
+    for n in notifs[:4]:
+        dn = _d(getattr(n, "dat_notificacao", None))
+        try:
+            prazo = int(float(getattr(n, "prazo_apresentacao", None) or 0))
+        except (TypeError, ValueError):
+            prazo = 0
+
+        linhas = [("NUM_NOTIFICACAO", getattr(n, "num_notificacao", None)),
+                  ("DAT_NOTIFICACAO", getattr(n, "dat_notificacao", None)),
+                  ("PRAZO_APRESENTACAO", f"{prazo} dia(s)" if prazo else None),
+                  ("FORMA_ENTREGA", getattr(n, "forma_entrega", None)),
+                  ("SIT_ATENDIDA", getattr(n, "sit_atendida", None)),
+                  ("DES_OCORRENCIA", getattr(n, "des_ocorrencia", None))]
+
+        leitura = ("Notificação do mesmo processo administrativo deste auto. "
+                   "O texto acima é a exigência feita pelo órgão antes da autuação.")
+
+        if base and dn and prazo > 0:
+            dias = (base - dn).days
+            venc = dn + timedelta(days=prazo)
+            if dias == 0:
+                leitura += (" Notificação e auto são do MESMO DIA — provavelmente a mesma "
+                            "fiscalização, com a notificação impondo obrigação futura e o "
+                            "auto punindo fato passado. Não há aqui apontamento de prazo.")
+            elif 0 < dias < prazo:
+                leitura += (f" ATENÇÃO: o auto foi lavrado {dias} dia(s) depois da "
+                            f"notificação, com o prazo concedido vencendo só em "
+                            f"{venc.isoformat()} — ou seja, {(venc - base).days} dia(s) "
+                            "antes de o administrado esgotar o prazo que o próprio órgão "
+                            "lhe deu. Confira no processo se a exigência já havia sido "
+                            "cumprida ou dispensada.")
+            elif dias < 0:
+                leitura += (f" O auto é {abs(dias)} dia(s) ANTERIOR à notificação — "
+                            "confira a ordem dos atos no processo.")
+
+        ev.append(_ev("3.1", f"Notificação {getattr(n, 'num_notificacao', '') or ''} "
+                             f"no mesmo processo", linhas, leitura))
+
+    if len(notifs) > 4:
+        ev.append(_ev("3.1", f"Mais {len(notifs) - 4} notificação(ões) no mesmo processo",
+                      [], "O processo acumula outras notificações — confira a sequência "
+                          "de atos nas peças."))
+    return ev
+
+
 def _evidenciar(p, reg: dict, irmaos_todos: list) -> list[dict]:
     ev: list[dict] = []
     g = lambda n: _campo(reg, n)
@@ -407,17 +478,21 @@ def _evidenciar(p, reg: dict, irmaos_todos: list) -> list[dict]:
 # ═══════════════════════════════════════════════════════════════════════════
 
 def pre_verificar(p, irmaos_janela: list, irmaos_todos: list,
-                  divida=None, escopo_divida: Optional[str] = None) -> dict:
+                  divida=None, escopo_divida: Optional[str] = None,
+                  notificacoes: Optional[list] = None) -> dict:
     """
     p              — o Prospecto em análise
     irmaos_janela  — autos do mesmo documento e município em até 30 dias
     irmaos_todos   — todos os demais autos do mesmo documento na carteira
     divida         — linha de DividaAtiva do autuado, se houver
     escopo_divida  — "estabelecimento" (CNPJ inteiro) ou "grupo" (raiz)
+    notificacoes   — notificações do MESMO processo administrativo
     """
     reg = getattr(p, "registro", None) or {}
     apurados = _apurar(p, reg, irmaos_janela)
-    evidencias = _evidenciar(p, reg, irmaos_todos) + _evidencia_divida(divida, escopo_divida)
+    evidencias = (_evidenciar(p, reg, irmaos_todos)
+                  + _evidencia_divida(divida, escopo_divida)
+                  + _evidencia_notificacao(notificacoes or [], p.dt_auto))
     return {
         "num_auto": p.num_auto,
         "apurados": apurados,
