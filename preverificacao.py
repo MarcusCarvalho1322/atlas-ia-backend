@@ -180,6 +180,72 @@ def _ev(item, titulo, campos, leitura) -> dict:
             "leitura": leitura}
 
 
+def _brl(v) -> str:
+    try:
+        return "R$ " + f"{float(v):,.2f}".replace(",", "·").replace(".", ",").replace("·", ".")
+    except Exception:
+        return "—"
+
+
+def _evidencia_divida(d, escopo: Optional[str] = None) -> list[dict]:
+    """
+    Perfil do AUTUADO na Dívida Ativa da União.
+
+    A RESSALVA VAI EM TODA EVIDÊNCIA, sem exceção: este perfil é do autuado,
+    NÃO da multa deste auto. Varri as 134 receitas que a PGFN publica e nenhuma
+    identifica multa do IBAMA — inclusive a que se chama "Contribuição Risco
+    Ambiental", que é previdenciária. Sem essa frase ao lado do número, o
+    analista leria "R$ 86 bilhões em dívida ativa" como se fosse deste processo.
+    """
+    if not d:
+        return []
+    ref = f" Base da PGFN com referência de {d.referencia_da_base}." if d.referencia_da_base else ""
+    # A PGFN publica por estabelecimento. Quando o casamento foi pela raiz, o
+    # número é do GRUPO e não daquele CNPJ — dizer isso é obrigatório.
+    de_quem = ("de OUTRO estabelecimento do mesmo grupo econômico (mesma raiz de CNPJ), "
+               "não deste CNPJ" if escopo == "grupo" else "deste CNPJ")
+    RESSALVA = (f"Perfil {de_quem} na Dívida Ativa da União — NÃO da multa deste auto. "
+                "A base da PGFN não identifica multas do IBAMA entre as receitas que "
+                "publica." + ref)
+    ev: list[dict] = []
+
+    # 7.4 — redirecionamento para sócios ou terceiros.
+    vinculados = (d.corresponsavel or 0) + (d.solidario or 0)
+    if vinculados:
+        ev.append(_ev("7.4", f"{vinculados} inscrição(ões) com terceiro vinculado à dívida",
+            [("CORRESPONSAVEL", str(d.corresponsavel or 0)),
+             ("SOLIDARIO", str(d.solidario or 0)),
+             ("INSCRICOES", str(d.inscricoes or 0))],
+            "Há corresponsável ou devedor solidário registrado em dívidas federais deste "
+            "autuado — base factual para discutir redirecionamento. " + RESSALVA))
+
+    # 7.5 e 6.3 — execução fiscal em curso.
+    if d.ajuizadas:
+        ev.append(_ev("7.5", f"{d.ajuizadas} de {d.inscricoes} inscrições já ajuizadas",
+            [("INDICADOR_AJUIZADO", f"{d.ajuizadas} SIM"),
+             ("inscricao_mais_antiga", d.inscricao_mais_antiga or "—")],
+            "O autuado já figura em execução fiscal da União. " + RESSALVA))
+        if d.inscricao_mais_antiga:
+            ev.append(_ev("6.3", f"Inscrição mais antiga em {d.inscricao_mais_antiga}",
+                [("inscricao_mais_antiga", d.inscricao_mais_antiga),
+                 ("inscricao_mais_recente", d.inscricao_mais_recente or "—")],
+                "Marco temporal do endividamento federal do autuado. Não é a inscrição "
+                "desta multa. " + RESSALVA))
+
+    # 7.6 — porte da dívida e transação em curso.
+    sit = d.situacoes or {}
+    beneficio = sum(v for k, v in sit.items() if "benef" in str(k).lower())
+    ev.append(_ev("7.6", f"Dívida ativa federal total: {_brl(d.valor_total)}",
+        [("VALOR_CONSOLIDADO", _brl(d.valor_total)),
+         ("INSCRICOES", str(d.inscricoes or 0)),
+         ("situações", ", ".join(f"{k}: {v}" for k, v in sit.items()) or "—")],
+        (f"{beneficio} inscrição(ões) em benefício fiscal — há parcelamento ou transação "
+         f"em curso, o que informa capacidade de pagamento. " if beneficio else
+         "Sem inscrição em benefício fiscal registrada. ") + RESSALVA))
+
+    return ev
+
+
 def _evidenciar(p, reg: dict, irmaos_todos: list) -> list[dict]:
     ev: list[dict] = []
     g = lambda n: _campo(reg, n)
@@ -340,15 +406,18 @@ def _evidenciar(p, reg: dict, irmaos_todos: list) -> list[dict]:
 #  ENTRADA
 # ═══════════════════════════════════════════════════════════════════════════
 
-def pre_verificar(p, irmaos_janela: list, irmaos_todos: list) -> dict:
+def pre_verificar(p, irmaos_janela: list, irmaos_todos: list,
+                  divida=None, escopo_divida: Optional[str] = None) -> dict:
     """
     p              — o Prospecto em análise
     irmaos_janela  — autos do mesmo documento e município em até 30 dias
     irmaos_todos   — todos os demais autos do mesmo documento na carteira
+    divida         — linha de DividaAtiva do autuado, se houver
+    escopo_divida  — "estabelecimento" (CNPJ inteiro) ou "grupo" (raiz)
     """
     reg = getattr(p, "registro", None) or {}
     apurados = _apurar(p, reg, irmaos_janela)
-    evidencias = _evidenciar(p, reg, irmaos_todos)
+    evidencias = _evidenciar(p, reg, irmaos_todos) + _evidencia_divida(divida, escopo_divida)
     return {
         "num_auto": p.num_auto,
         "apurados": apurados,

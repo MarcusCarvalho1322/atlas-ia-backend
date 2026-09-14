@@ -104,6 +104,64 @@ class Prospecto(Base):
         return d
 
 
+class DividaAtiva(Base):
+    """
+    Perfil do AUTUADO na Dívida Ativa da União — não da multa deste auto.
+
+    ESTA DISTINÇÃO É O PONTO INTEIRO DESTA TABELA.
+
+    A PGFN publica trimestralmente 9 GB de inscrições em dívida ativa, com 134
+    receitas distintas. Varri as 134: NENHUMA identifica multa do IBAMA. Há uma
+    chamada "Contribuição Risco Ambiental/Aposentadoria Especial" que parece
+    ambiental e é previdenciária (SAT/RAT) — um casamento por palavra-chave
+    produziria aqui exatamente o erro de aparência plausível que este sistema
+    existe para não cometer.
+
+    Ou seja: não dá para amarrar a multa de um auto à sua inscrição em dívida
+    ativa. O que dá, e vale muito, é o PERFIL DE ENDIVIDAMENTO FEDERAL do
+    autuado — se já está em execução fiscal, se há corresponsável registrado,
+    se tem parcelamento em curso. Isso pesa nos itens 6.3, 7.4, 7.5 e 7.6 como
+    evidência, e reordena a carteira comercial.
+
+    Só pessoa jurídica. O CPF da PGFN vem mascarado em posições diferentes das
+    que o IBAMA publica — a sobreposição é de dois dígitos, e cruzar por isso
+    seria inventar correspondência.
+    """
+    __tablename__ = "divida_ativa"
+
+    # 14 dígitos, só números — a mesma forma que Prospecto.cnpj usa.
+    cnpj = Column(String, primary_key=True)
+    # Os 8 primeiros dígitos identificam o GRUPO ECONÔMICO. A PGFN publica por
+    # estabelecimento: a dívida da matriz não está na linha da filial. Um auto
+    # lavrado contra a filial não casa com a matriz no CNPJ inteiro — daí a
+    # raiz existir, para uma segunda tentativa que a evidência rotula como
+    # sendo do grupo, nunca daquele estabelecimento.
+    raiz = Column(String, index=True, nullable=True)
+    nome = Column(String, nullable=True)
+    uf = Column(String, nullable=True)
+
+    inscricoes = Column(Integer, default=0)
+    valor_total = Column(Float, default=0.0)
+    ajuizadas = Column(Integer, default=0)
+    corresponsavel = Column(Integer, default=0)
+    solidario = Column(Integer, default=0)
+
+    situacoes = Column(JSON, nullable=True)            # {"Em cobrança": 12, ...}
+    receitas_principais = Column(JSON, nullable=True)  # as 5 mais frequentes
+    inscricao_mais_antiga = Column(String, nullable=True)
+    inscricao_mais_recente = Column(String, nullable=True)
+
+    # Data da extração e referência da base. Vai junto em toda evidência: uma
+    # ausência aqui só significa ausência NAQUELE trimestre.
+    referencia_da_base = Column(String, nullable=True)
+    carregado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self):
+        return {c.name: (getattr(self, c.name).isoformat()
+                         if c.name == "carregado_em" and getattr(self, c.name) else getattr(self, c.name))
+                for c in self.__table__.columns}
+
+
 class CacheConsulta(Base):
     """
     Cache de consultas a fontes externas.

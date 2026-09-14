@@ -28,7 +28,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from db import Base, engine, get_db, SessionLocal, descrever_banco, garantir_colunas
-from models import Caso, Prospecto
+from models import Caso, Prospecto, DividaAtiva
 import geo_service
 import ai_service
 import catalogo
@@ -331,7 +331,83 @@ def pre_verificacao_do_caso(num_auto: str, authorization: Optional[str] = Header
               if x.municipio == p.municipio and base and _dt(x.dt_auto)
               and abs((_dt(x.dt_auto) - base).days) <= preverificacao.JANELA_MULTIPLAS_DIAS]
 
-    return preverificacao.pre_verificar(p, janela, familia)
+    # Perfil de dívida ativa federal — só pessoa jurídica, e só do AUTUADO.
+    #
+    # Duas tentativas, e a diferença entre elas vai escrita na evidência:
+    # primeiro o CNPJ inteiro (aquele estabelecimento); se não houver, a raiz
+    # (o grupo econômico). Um auto contra a filial não pode exibir a dívida da
+    # matriz como se fosse dela.
+    divida, escopo = None, None
+    if p.cnpj:
+        divida = db.query(DividaAtiva).filter(DividaAtiva.cnpj == p.cnpj).first()
+        if divida:
+            escopo = "estabelecimento"
+        elif len(p.cnpj) >= 8:
+            divida = (db.query(DividaAtiva)
+                        .filter(DividaAtiva.raiz == p.cnpj[:8])
+                        .order_by(DividaAtiva.valor_total.desc()).first())
+            if divida:
+                escopo = "grupo"
+
+    return preverificacao.pre_verificar(p, janela, familia,
+                                        divida=divida, escopo_divida=escopo)
+
+
+class CargaDividaAtiva(BaseModel):
+    referencia_da_base: Optional[str] = None
+    devedores: list[dict]
+
+
+@app.post("/api/divida-ativa/carregar")
+def carregar_divida_ativa(req: CargaDividaAtiva,
+                          authorization: Optional[str] = Header(None),
+                          db: Session = Depends(get_db)):
+    """
+    Carrega o perfil de dívida ativa federal dos autuados pessoa jurídica.
+
+    POR QUE A CARGA É POR ROTA, E NÃO UMA MINERAÇÃO COMO A DO IBAMA
+    ----------------------------------------------------------------
+    O arquivo trimestral da PGFN tem 1,34 GB compactado e 9,04 GB abertos, em
+    seis CSVs. Filtrar isso exige disco e memória que o plano deste serviço não
+    tem — e a carteira só precisa das linhas dos CNPJs que ela acompanha, que
+    somam menos de 1 MB depois de agregadas.
+
+    Então a leitura pesada acontece fora, uma vez por trimestre, e aqui entra só
+    o resultado. Idempotente: recarregar o mesmo trimestre sobrescreve.
+
+    O QUE ESTA BASE NÃO RESPONDE
+    -----------------------------
+    Varri as 134 receitas que a PGFN publica: nenhuma identifica multa do IBAMA.
+    Portanto isto NÃO liga a multa do auto a uma inscrição em dívida ativa. É o
+    perfil de endividamento federal do autuado, e cada evidência gerada carrega
+    essa ressalva por escrito.
+    """
+    _checar_auth(authorization)
+    gravados = 0
+    for d in req.devedores:
+        cnpj = (d.get("cnpj") or "").strip()
+        if not cnpj:
+            continue
+        cnpj = "".join(ch for ch in cnpj if ch.isdigit())
+        if len(cnpj) != 14:
+            continue
+        linha = db.query(DividaAtiva).filter(DividaAtiva.cnpj == cnpj).first()
+        if not linha:
+            linha = DividaAtiva(cnpj=cnpj)
+            db.add(linha)
+        linha.raiz = cnpj[:8]
+        for campo in ("nome", "uf", "inscricoes", "valor_total", "ajuizadas",
+                      "corresponsavel", "solidario", "situacoes",
+                      "receitas_principais", "inscricao_mais_antiga",
+                      "inscricao_mais_recente"):
+            if campo in d:
+                setattr(linha, campo, d[campo])
+        linha.referencia_da_base = req.referencia_da_base
+        gravados += 1
+    db.commit()
+    return {"gravados": gravados,
+            "total_na_base": db.query(DividaAtiva).count(),
+            "referencia_da_base": req.referencia_da_base}
 
 
 @app.get("/api/prospeccao/territorio")
