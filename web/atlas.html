@@ -949,7 +949,12 @@ async function gerarLaudo(){
       // `apurados` é o que o laudo usa para declarar a procedência de cada
       // resposta. Sem esta lista o documento afirmaria conferência humana que
       // não houve nos itens que a máquina contou.
+      //
+      // `numAuto` faltava, e a falta tinha duas consequências: o laudo saía
+      // sem dizer de qual auto ele trata, e o registro de acesso não tinha
+      // como dizer sobre qual caso a pessoa trabalhou.
       body: JSON.stringify({respostas: RESPOSTAS, valorMulta: valor,
+                            numAuto: (CASO_EM_ANALISE && CASO_EM_ANALISE.num_auto) || null,
                             apurados: Object.keys(APURADOS)})
     });
     renderLaudo();

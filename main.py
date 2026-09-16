@@ -28,7 +28,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from db import Base, engine, get_db, SessionLocal, descrever_banco, garantir_colunas
-from models import Caso, Prospecto, DividaAtiva, Notificacao, Termo
+from models import Caso, Prospecto, DividaAtiva, Notificacao, Termo, Acesso
 import geo_service
 import ai_service
 import catalogo
@@ -101,6 +101,33 @@ def _checar_auth(authorization: Optional[str]) -> str:
     if not nome:
         raise HTTPException(401, "Token inválido ou ausente")
     return nome
+
+
+def _registrar(db, quem: str, acao: str, alvo: Optional[str] = None) -> None:
+    """
+    Grava quem consultou qual caso.
+
+    NUNCA DERRUBA A ROTA QUE ESTÁ REGISTRANDO. Um registro de acesso é
+    importante, mas não é mais importante que a pessoa conseguir trabalhar: se
+    a gravação falhar — banco fora do ar, tabela ainda não criada, o que for —
+    a exceção é engolida e a rota segue. O contrário produziria a pior das
+    combinações: o sistema parando de funcionar por causa do mecanismo que
+    existe só para observá-lo.
+
+    A gravação é feita ANTES do trabalho da rota, justamente para que o
+    registro exista mesmo que o trabalho falhe depois: consulta que deu erro
+    também é consulta, e é a que mais interessa numa apuração.
+    """
+    if db is None or not quem:
+        return
+    try:
+        db.add(Acesso(quem=quem, acao=acao, alvo=(alvo or None)))
+        db.commit()
+    except Exception:
+        try:
+            db.rollback()
+        except Exception:
+            pass
 
 
 # ───────────────────────── saúde / info ─────────────────────────
@@ -276,7 +303,7 @@ def contato_do_caso(num_auto: str, authorization: Optional[str] = Header(None),
     contato a partir de CPF, e o sistema não recorre a base de origem não
     verificável — devolve o caminho de aproximação por canal local.
     """
-    _checar_auth(authorization)
+    _registrar(db, _checar_auth(authorization), "consultou-contato", num_auto)
     p = db.query(Prospecto).filter(Prospecto.num_auto == num_auto).first()
     if not p:
         raise HTTPException(404, "Auto não encontrado na carteira.")
@@ -305,7 +332,7 @@ def pre_verificacao_do_caso(num_auto: str, authorization: Optional[str] = Header
     Os irmãos do item 5.6 saem de uma consulta ao acervo, e é por isso que ela
     fica aqui e não dentro do módulo: o cruzamento precisa do banco.
     """
-    _checar_auth(authorization)
+    _registrar(db, _checar_auth(authorization), "consultou-caso", num_auto)
     p = db.query(Prospecto).filter(Prospecto.num_auto == num_auto).first()
     if not p:
         raise HTTPException(404, "Auto não encontrado na carteira.")
@@ -627,6 +654,11 @@ class AuditoriaRequest(BaseModel):
     respostas: dict[str, str]              # {"1.1": "ok" | "fail" | "na", ...}
     valorMulta: Optional[str | float] = None  # para calcular a exposição financeira
     casoId: Optional[str] = None           # se informado, o resultado é gravado no caso
+    # Número do auto em análise. Faltava, e a falta tinha duas consequências:
+    # o laudo saía sem dizer de qual auto ele trata, e o registro de acesso não
+    # tinha como dizer sobre qual caso a pessoa trabalhou. Opcional para não
+    # quebrar chamada antiga.
+    numAuto: Optional[str] = None
     # Ids que vieram da pré-verificação, apurados sobre o registro público em
     # vez de respondidos por pessoa. O laudo declara essa separação: quem lê o
     # documento precisa saber o que foi conferido por alguém e o que é conta
@@ -641,7 +673,8 @@ def executar_auditoria(
     authorization: Optional[str] = Header(None),
     db: Session = Depends(get_db),
 ):
-    _checar_auth(authorization)
+    _registrar(db, _checar_auth(authorization), "executou-auditoria",
+               req.numAuto or (str(req.casoId) if req.casoId else None))
     resultado = catalogo.executar_auditoria(req.respostas, req.valorMulta)
     if req.casoId:
         caso = db.query(Caso).filter(Caso.id == req.casoId).first()
@@ -665,7 +698,8 @@ def emitir_laudo_tecnico(
     trafega por aqui: a separação é feita no servidor, de modo que o aplicativo
     do consumidor nunca chega a receber a camada jurídica.
     """
-    _checar_auth(authorization)
+    _registrar(db, _checar_auth(authorization), "emitiu-laudo",
+               req.numAuto or (str(req.casoId) if req.casoId else None))
     completo = catalogo.executar_auditoria(req.respostas, req.valorMulta)
     if req.casoId:
         caso = db.query(Caso).filter(Caso.id == req.casoId).first()
@@ -673,6 +707,8 @@ def emitir_laudo_tecnico(
             caso.audit_result = completo
             db.commit()
     laudo = catalogo.laudo_tecnico(completo)
+    if req.numAuto:
+        laudo["num_auto"] = req.numAuto
 
     # A PROCEDÊNCIA DE CADA RESPOSTA VAI NO LAUDO.
     #
@@ -692,6 +728,33 @@ def emitir_laudo_tecnico(
         ) if apurados else (
             "Todos os itens verificados foram conferidos por quem assina a análise."
         ),
+        # AS BASES QUE PODEM TER INSTRUÍDO A CONFERÊNCIA.
+        #
+        # Nenhuma das quatro responde item nenhum — a resposta é sempre de
+        # quem assina ou, nos poucos apurados, de conta aritmética. Mas quem
+        # lê o laudo tem direito de saber que existiu material de consulta ao
+        # lado das perguntas, e de onde ele veio. Sem esta lista, a evidência
+        # que orientou a conferência ficaria invisível no documento.
+        "bases_consultadas": [
+            {"fonte": "IBAMA — Fiscalização/Auto de Infração",
+             "papel": "cadastro administrativo do auto; origem dos itens apurados"},
+            {"fonte": "PGFN — Dívida Ativa da União",
+             "papel": "perfil fiscal do autuado; NÃO contém a multa deste auto, "
+                      "pois a PGFN não identifica receitas do IBAMA entre as que publica"},
+            {"fonte": "IBAMA — Fiscalização/Notificação",
+             "papel": "notificação do MESMO processo administrativo; exibida como "
+                      "evidência, nunca como resposta"},
+            {"fonte": "IBAMA — Termos de embargo, apreensão e suspensão",
+             "papel": "termos do MESMO número de auto; quando trazem área embargada, "
+                      "o número é do TERMO e não do auto — preenche lacuna do cadastro "
+                      "e não confirma a dosimetria"},
+        ],
+        "limite": (
+            "Toda evidência exibida pelo sistema provém de registro administrativo "
+            "público. Registro administrativo não é o processo: a ausência de um campo "
+            "não prova a ausência da peça, e a presença de um dado não prova que ele "
+            "foi o utilizado no ato impugnado."
+        ),
     }
 
     # O valor da multa é fato, e acompanha o laudo. O valor projetado por
@@ -702,14 +765,42 @@ def emitir_laudo_tecnico(
 
 
 @app.post("/api/anexo-juridico")
-def emitir_anexo_juridico(req: AuditoriaRequest, authorization: Optional[str] = Header(None)):
+def emitir_anexo_juridico(req: AuditoriaRequest, authorization: Optional[str] = Header(None),
+                          db: Session = Depends(get_db)):
     """
     Camada do ADVOGADO constituído pelo cliente — ou uso interno de priorização.
     Qualificação das constatações, teses, fundamentos, taxas e exposição financeira.
     """
-    _checar_auth(authorization)
+    _registrar(db, _checar_auth(authorization), "emitiu-anexo-juridico",
+               req.numAuto or (str(req.casoId) if req.casoId else None))
     completo = catalogo.executar_auditoria(req.respostas, req.valorMulta)
     return catalogo.anexo_juridico(completo)
+
+
+@app.get("/api/acessos")
+def listar_acessos(alvo: Optional[str] = None, quem: Optional[str] = None,
+                   limite: int = 200, authorization: Optional[str] = Header(None),
+                   db: Session = Depends(get_db)):
+    """
+    Lê o registro de acesso: quem consultou qual caso, e quando.
+
+    Filtra por `alvo` (número do auto) para responder à pergunta que motivou
+    esta tabela — "quem acessou este processo" — e por `quem` para a pergunta
+    inversa. Sem filtro, devolve os últimos acessos.
+
+    A própria leitura é registrada. Auditoria que não se audita tem um ponto
+    cego exatamente onde mais importa.
+    """
+    nome = _checar_auth(authorization)
+    _registrar(db, nome, "leu-registro-de-acesso", alvo or quem or None)
+    q = db.query(Acesso)
+    if alvo:
+        q = q.filter(Acesso.alvo == alvo)
+    if quem:
+        q = q.filter(Acesso.quem == quem)
+    linhas = q.order_by(Acesso.em.desc()).limit(max(1, min(limite, 1000))).all()
+    return {"total_no_filtro": q.count(),
+            "acessos": [a.to_dict() for a in linhas]}
 
 
 # ───────────────────────── IA: diagnóstico + peças ─────────────────────────

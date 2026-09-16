@@ -303,6 +303,47 @@ class Termo(Base):
     carregado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+class Acesso(Base):
+    """
+    Quem consultou qual caso, e quando.
+
+    POR QUE ISTO EXISTE
+    --------------------
+    A autenticação já identificava a pessoa: `_checar_auth` devolve o nome de
+    quem entrou, lido do mapa senha → nome. Só que nenhuma rota guardava esse
+    nome — ele era calculado e descartado na mesma linha. O sistema sabia quem
+    estava ali e esquecia no instante seguinte.
+
+    Num sistema que manipula caso de cliente, com advogada sócia e equipe com
+    senhas individuais, isso é uma lacuna concreta: no dia em que alguém
+    perguntar "quem acessou este processo", a resposta seria "não sei". Não é
+    hipótese remota — é a primeira pergunta de qualquer apuração, interna ou
+    externa, e a única resposta aceitável é um registro que já existia antes
+    da pergunta.
+
+    O QUE ENTRA, E O QUE DELIBERADAMENTE NÃO ENTRA
+    -----------------------------------------------
+    Entra o mínimo que responde à pergunta: quem, o que fez, sobre qual caso,
+    quando. NÃO entra endereço IP, agente do navegador nem qualquer coisa que
+    transforme um registro de auditoria num rastreamento da equipe. O objetivo
+    é responder por um caso, não vigiar quem trabalha nele.
+
+    Também não entra o conteúdo: o registro diz que fulano emitiu laudo do auto
+    X, não o que o laudo dizia. O laudo já é guardado em outro lugar.
+    """
+    __tablename__ = "acessos"
+
+    id = Column(Integer, primary_key=True, autoincrement=True)
+    quem = Column(String, index=True, nullable=False)     # nome vindo do mapa de senhas
+    acao = Column(String, index=True, nullable=False)     # consultou | emitiu-laudo | ...
+    alvo = Column(String, index=True, nullable=True)      # num_auto ou id do caso
+    em = Column(DateTime, index=True, default=lambda: datetime.now(timezone.utc))
+
+    def to_dict(self):
+        return {"id": self.id, "quem": self.quem, "acao": self.acao,
+                "alvo": self.alvo, "em": self.em.isoformat() if self.em else None}
+
+
 class CacheConsulta(Base):
     """
     Cache de consultas a fontes externas.
