@@ -317,6 +317,151 @@ def _evidencia_notificacao(notifs: list, dt_auto) -> list[dict]:
     return ev
 
 
+def _area(valor) -> Optional[float]:
+    """Área em hectares, tolerando vírgula decimal e separador de milhar."""
+    if valor is None:
+        return None
+    s = str(valor).strip().replace(".", "").replace(",", ".")
+    try:
+        v = float(s)
+    except ValueError:
+        return None
+    return v if v > 0 else None
+
+
+def _ha(v: float) -> str:
+    return f"{v:,.4f}".replace(",", "·").replace(".", ",").replace("·", ".").rstrip("0").rstrip(",") + " ha"
+
+
+def _evidencia_termo(termos: list, reg: dict) -> list[dict]:
+    """
+    Termos lavrados na mesma fiscalização: embargo, apreensão, suspensão.
+
+    O vínculo é o NUM_AUTO_INFRACAO declarado pelo próprio IBAMA no termo —
+    sem inferência nenhuma, ao contrário da notificação, que só casa pelo
+    processo.
+
+    A ÁREA É O MOTIVO DE ESTA FONTE EXISTIR
+    ----------------------------------------
+    QT_AREA consta em 7,4% da carteira; QTD_AREA_EMBARGADA, em 91,5% dos
+    embargos. São 1.444 autos cuja área só aparece no termo — 93,2% deles
+    descrevendo desmatamento, onde o número é a base do cálculo da multa.
+
+    Antes de exibir esse número foi preciso saber se ele é a mesma grandeza.
+    Nos 703 autos com as duas áreas, elas são idênticas em 698 (99,3%). Logo:
+    o termo PREENCHE A LACUNA do cadastro, mas não confirma coisa alguma — é
+    a mesma fonte estatal publicada duas vezes, e a leitura de cada evidência
+    diz isso com todas as letras. Quando os dois números existem e divergem,
+    o que se mostra é a divergência, não uma conclusão sobre ela.
+    """
+    if not termos:
+        return []
+    ev: list[dict] = []
+    area_auto = _area(_campo(reg, "QT_AREA"))
+
+    embargos = [t for t in termos if (getattr(t, "tipo", "") or "") == "embargo"]
+    outros = [t for t in termos if t not in embargos]
+
+    # ── 1. A área ───────────────────────────────────────────────────────────
+    area_emb = sum(_area(getattr(t, "area", None)) or 0.0 for t in embargos)
+    if area_emb > 0:
+        nums = ", ".join(str(getattr(t, "num_termo", "") or "") for t in embargos if getattr(t, "num_termo", None))
+        linhas = [("QTD_AREA_EMBARGADA (termo de embargo)", _ha(area_emb)),
+                  ("QT_AREA (cadastro do auto)", _ha(area_auto) if area_auto else "— vazio no cadastro"),
+                  ("TERMO(S) DE EMBARGO", nums),
+                  ("TIPO_AREA", "; ".join(sorted({(getattr(t, "tipo_area", "") or "").strip()
+                                                  for t in embargos if getattr(t, "tipo_area", None)})) or None)]
+        if area_auto is None:
+            leitura = ("A área NÃO consta do cadastro do auto, mas consta do termo de embargo "
+                       "lavrado na mesma fiscalização. Em infração de desmatamento a área é a "
+                       "base do cálculo do valor. ATENÇÃO à procedência: este número é do TERMO, "
+                       "não do auto, e vem da mesma fonte estatal — não confirma o cálculo da "
+                       "multa, apenas mostra qual área o próprio órgão registrou. Confira no "
+                       "processo qual área foi efetivamente usada na dosimetria.")
+        elif abs(area_emb - area_auto) <= max(area_auto * 0.01, 0.0001):
+            leitura = ("As duas áreas publicadas pelo IBAMA para este auto coincidem. Coincidir "
+                       "não é confirmar: é a mesma fonte estatal publicada duas vezes, não uma "
+                       "segunda medição. Serve para descartar erro de transcrição, nada além.")
+        else:
+            dif = area_emb - area_auto
+            leitura = (f"DIVERGÊNCIA: o próprio IBAMA publicou duas áreas diferentes para este "
+                       f"mesmo auto — {_ha(area_auto)} no cadastro do auto e {_ha(area_emb)} no "
+                       f"termo de embargo, diferença de {_ha(abs(dif))} "
+                       f"({'a maior' if dif > 0 else 'a menor'} no termo). Na carteira medida isso "
+                       f"ocorre em 0,7% dos casos com as duas áreas. Sendo a área a base do "
+                       f"cálculo, confira no processo qual número sustentou o valor da multa.")
+        ev.append(_ev("4.9", "Área: cadastro do auto × termo de embargo", linhas, leitura))
+
+        if area_auto is None:
+            ev.append(_ev("5.2", "Base de cálculo ausente no auto, presente no termo",
+                          [("QT_AREA (cadastro do auto)", "— vazio"),
+                           ("QTD_AREA_EMBARGADA (termo)", _ha(area_emb))],
+                          "O valor da multa por hectare depende de uma área que o cadastro do "
+                          "auto não traz. O termo da mesma fiscalização traz. Número do termo, "
+                          "não do auto — a memória de cálculo continua sendo peça do processo."))
+
+    # ── 2. O embargo está em vigor? ─────────────────────────────────────────
+    for t in embargos[:3]:
+        desemb = (getattr(t, "sit_desembargo", "") or "").strip().upper()
+        linhas = [("NUM_TAD", getattr(t, "num_termo", None)),
+                  ("DAT_EMBARGO", getattr(t, "data", None)),
+                  ("SIT_DESEMBARGO", desemb or "— sem registro de desembargo"),
+                  ("DAT_DESEMBARGO", getattr(t, "dat_desembargo", None)),
+                  ("DES_DESEMBARGO", getattr(t, "des_desembargo", None)),
+                  ("DES_LOCALIZACAO", getattr(t, "localizacao", None)),
+                  ("DES_TAD", getattr(t, "descricao", None))]
+        if desemb == "S":
+            leitura = ("O registro traz DESEMBARGO para este termo. A área deixou de estar "
+                       "interditada segundo o cadastro — confira a decisão que o motivou, que "
+                       "é peça do processo.")
+        else:
+            leitura = ("O cadastro não registra desembargo: pelo registro público, a interdição "
+                       "segue em vigor. Isso muda a urgência prática do caso — a área continua "
+                       "impedida de uso — e alcança a via do PRAD. Na carteira medida, apenas "
+                       "0,6% dos embargos têm desembargo registrado. Ausência no cadastro não "
+                       "prova ausência no processo: confira se há decisão posterior.")
+        ev.append(_ev("8.3", f"Termo de embargo {getattr(t, 'num_termo', '') or ''} — situação",
+                      linhas, leitura))
+
+    # ── 3. Os demais termos da mesma fiscalização ───────────────────────────
+    ROTULO = {"apreensao": "Termo de apreensão", "suspensao": "Termo de suspensão",
+              "demolicao": "Termo de demolição"}
+    for t in outros[:4]:
+        tipo = (getattr(t, "tipo", "") or "").strip()
+        linhas = [("NUM_TAD", getattr(t, "num_termo", None)),
+                  ("DATA", getattr(t, "data", None)),
+                  ("VALOR", getattr(t, "valor", None)),
+                  ("FORMA_ENTREGA", getattr(t, "forma_entrega", None)),
+                  ("DES_TAD", getattr(t, "descricao", None)),
+                  ("DES_JUSTIFICATIVA", getattr(t, "justificativa", None)),
+                  ("DES_LOCALIZACAO", getattr(t, "localizacao", None))]
+        leitura = ("Termo lavrado na mesma fiscalização deste auto, vinculado pelo próprio "
+                   "número do auto no registro do IBAMA. O texto acima é o que o órgão "
+                   "determinou. Se houve bem apreendido, a destinação, o depositário e o estado "
+                   "de conservação são peças do processo — o cadastro não os traz.")
+        ev.append(_ev("8.3", f"{ROTULO.get(tipo, 'Termo')} {getattr(t, 'num_termo', '') or ''}",
+                      linhas, leitura))
+
+    # ── 4. Ordem de fiscalização do termo × do auto ─────────────────────────
+    ordem_auto = _campo(reg, "NUM_ORDEM_FISCALIZACAO") or _campo(reg, "ORDEM_FISCALIZACAO")
+    ordens = sorted({(getattr(t, "num_ordem_fiscalizacao", "") or "").strip()
+                     for t in termos if getattr(t, "num_ordem_fiscalizacao", None)})
+    if ordens:
+        divergem = ordem_auto and all(o != ordem_auto for o in ordens)
+        ev.append(_ev("1.12", "Ordem de fiscalização: auto × termo",
+                      [("ORDEM no auto", ordem_auto or "— vazia no cadastro"),
+                       ("ORDEM no(s) termo(s)", "; ".join(ordens)),
+                       ("UNID_ORDENADORA", "; ".join(sorted({(getattr(t, "unid_ordenadora", "") or "").strip()
+                                                             for t in termos
+                                                             if getattr(t, "unid_ordenadora", None)})) or None)],
+                      ("As ordens de fiscalização do auto e do termo NÃO coincidem. Podem ser "
+                       "atos de diligências distintas — confira no processo qual ordem autorizou "
+                       "cada lavratura." if divergem else
+                       "Ordem de fiscalização registrada no termo da mesma diligência. Serve "
+                       "para localizar no processo a autorização que amparou a ação.")))
+    return ev
+
+
 def _evidenciar(p, reg: dict, irmaos_todos: list) -> list[dict]:
     ev: list[dict] = []
     g = lambda n: _campo(reg, n)
@@ -479,7 +624,8 @@ def _evidenciar(p, reg: dict, irmaos_todos: list) -> list[dict]:
 
 def pre_verificar(p, irmaos_janela: list, irmaos_todos: list,
                   divida=None, escopo_divida: Optional[str] = None,
-                  notificacoes: Optional[list] = None) -> dict:
+                  notificacoes: Optional[list] = None,
+                  termos: Optional[list] = None) -> dict:
     """
     p              — o Prospecto em análise
     irmaos_janela  — autos do mesmo documento e município em até 30 dias
@@ -487,12 +633,14 @@ def pre_verificar(p, irmaos_janela: list, irmaos_todos: list,
     divida         — linha de DividaAtiva do autuado, se houver
     escopo_divida  — "estabelecimento" (CNPJ inteiro) ou "grupo" (raiz)
     notificacoes   — notificações do MESMO processo administrativo
+    termos         — embargo/apreensão/suspensão do MESMO número de auto
     """
     reg = getattr(p, "registro", None) or {}
     apurados = _apurar(p, reg, irmaos_janela)
     evidencias = (_evidenciar(p, reg, irmaos_todos)
                   + _evidencia_divida(divida, escopo_divida)
-                  + _evidencia_notificacao(notificacoes or [], p.dt_auto))
+                  + _evidencia_notificacao(notificacoes or [], p.dt_auto)
+                  + _evidencia_termo(termos or [], reg))
     return {
         "num_auto": p.num_auto,
         "apurados": apurados,

@@ -33,6 +33,10 @@ dados_pgfn/
 # público de 113 MB, filtradas pelos processos da carteira. Mesma natureza do
 # agregado da PGFN — derivado, regenerável, e sem lugar no repositório.
 dados_ibama_notif/
+# Recorte dos termos de fiscalizacao: 3.016 termos extraidos de mais de 320 MB
+# de arquivos publicos, filtrados pelos autos da carteira. Mesma natureza dos
+# dois acima — derivado, regeneravel, sem lugar no repositorio.
+dados_ibama_termos/
 *.csv
 *.zip
 

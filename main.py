@@ -28,7 +28,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from db import Base, engine, get_db, SessionLocal, descrever_banco, garantir_colunas
-from models import Caso, Prospecto, DividaAtiva, Notificacao
+from models import Caso, Prospecto, DividaAtiva, Notificacao, Termo
 import geo_service
 import ai_service
 import catalogo
@@ -360,9 +360,15 @@ def pre_verificacao_do_caso(num_auto: str, authorization: Optional[str] = Header
                         .filter(Notificacao.processo == so)
                         .order_by(Notificacao.dat_notificacao).limit(10).all())
 
+    # Termos da MESMA fiscalização. Aqui o vínculo é o próprio número do auto,
+    # declarado pelo IBAMA dentro do termo — o mais forte de todas as fontes.
+    termos = (db.query(Termo)
+                .filter(Termo.num_auto == p.num_auto)
+                .order_by(Termo.tipo, Termo.data).limit(12).all())
+
     return preverificacao.pre_verificar(p, janela, familia,
                                         divida=divida, escopo_divida=escopo,
-                                        notificacoes=notifs)
+                                        notificacoes=notifs, termos=termos)
 
 
 class CargaNotificacoes(BaseModel):
@@ -422,6 +428,61 @@ def carregar_notificacoes(req: CargaNotificacoes,
     return {"linhas_recebidas": gravadas,
             "notificacoes_distintas": len(tocadas),
             "total_na_base": db.query(Notificacao).count()}
+
+
+class CargaTermos(BaseModel):
+    termos: list[dict]
+
+
+@app.post("/api/termos/carregar")
+def carregar_termos(req: CargaTermos,
+                    authorization: Optional[str] = Header(None),
+                    db: Session = Depends(get_db)):
+    """
+    Carrega os termos do IBAMA cujo NUM_AUTO_INFRACAO consta da carteira.
+
+    Os arquivos de origem somam mais de 320 MB (embargo sozinho tem 197 MB e
+    116.057 linhas). Só 3.022 termos pertencem a autos que a carteira
+    acompanha. Como na dívida ativa e na notificação, a filtragem acontece
+    fora e aqui entra o recorte.
+
+    Termos CANCELADOS não chegam nesta rota: são descartados na extração,
+    porque um embargo cancelado exibido ao lado da pergunta induziria a erro
+    exatamente na direção contrária à do resto do sistema.
+
+    A chave é o número do termo. Vale a mesma cautela da notificação: se o
+    arquivo público repetir um número numa remessa, `tocados` consolida em vez
+    de deixar o banco recusar a chave — a sessão não faz flush automático e
+    uma consulta não enxergaria a linha recém-criada.
+    """
+    _checar_auth(authorization)
+    gravados = 0
+    tocados: dict = {}
+    for t in req.termos:
+        num = (t.get("num_termo") or "").strip()
+        auto = (t.get("num_auto") or "").strip()
+        tipo = (t.get("tipo") or "").strip()
+        if not num or not auto or not tipo:
+            continue
+        linha = tocados.get(num)
+        if linha is None:
+            linha = db.query(Termo).filter(Termo.num_termo == num).first()
+        if not linha:
+            linha = Termo(num_termo=num, tipo=tipo, num_auto=auto)
+            db.add(linha)
+        tocados[num] = linha
+        linha.tipo, linha.num_auto = tipo, auto
+        for campo in ("data", "municipio", "uf", "area", "tipo_area", "sit_desembargo",
+                      "dat_desembargo", "des_desembargo", "descricao", "localizacao",
+                      "forma_entrega", "justificativa", "valor",
+                      "num_ordem_fiscalizacao", "unid_ordenadora"):
+            if campo in t:
+                setattr(linha, campo, t[campo])
+        gravados += 1
+    db.commit()
+    return {"linhas_recebidas": gravados,
+            "termos_distintos": len(tocados),
+            "total_na_base": db.query(Termo).count()}
 
 
 class CargaDividaAtiva(BaseModel):

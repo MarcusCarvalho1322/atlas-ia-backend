@@ -221,6 +221,88 @@ class Notificacao(Base):
     carregado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+class Termo(Base):
+    """
+    Termo lavrado na MESMA fiscalização do auto: embargo, apreensão, suspensão
+    ou demolição.
+
+    O VÍNCULO AQUI É O PRÓPRIO NÚMERO DO AUTO
+    ------------------------------------------
+    Diferente da notificação, que só casa pelo processo, o termo traz o
+    NUM_AUTO_INFRACAO no próprio registro. É o vínculo mais forte de todas as
+    fontes integradas até agora — não há inferência nenhuma entre o termo e o
+    auto: o IBAMA declara o par.
+
+    O QUE ISSO ALCANÇA, MEDIDO NA CARTEIRA DE 10.762 AUTOS
+    -------------------------------------------------------
+      embargo     2.348 termos → 2.346 autos  (21,8% da carteira)
+      apreensão     653 termos →   525 autos  ( 4,9%)
+      suspensão      21 termos →    17 autos  ( 0,2%)
+      demolição       0                       (nenhum auto da carteira)
+    Somados: 2.861 autos distintos, 26,6% da carteira. Termos cancelados
+    (SIT_CANCELADO = S) são descartados na extração e nunca chegam aqui.
+
+    O ACHADO QUE JUSTIFICA ESTA FONTE
+    ----------------------------------
+    A área é a base do cálculo da multa de desmatamento, e o cadastro do auto
+    a traz em apenas 7,4% da carteira. O embargo da MESMA fiscalização traz
+    QTD_AREA_EMBARGADA em 91,5% dos casos. Resultado: 1.444 autos sem área no
+    próprio registro têm área no termo de embargo — e 93,2% deles descrevem
+    desmatamento ou supressão, exatamente onde o número decide o valor.
+
+    A CONFERÊNCIA QUE AUTORIZA MOSTRAR ESSE NÚMERO
+    -----------------------------------------------
+    Área de embargo e área autuada são conceitos distintos em tese: o embargo
+    interdita para permitir recuperação e poderia ser mais amplo. Por isso a
+    comparação foi feita antes de decidir. Nos 703 autos em que as DUAS áreas
+    existem, elas são idênticas em 698 (99,3%). Na prática, nesta carteira, é
+    o mesmo número publicado duas vezes.
+
+    Daí decorrem as duas consequências que o código respeita:
+      1. o número do embargo PREENCHE UMA LACUNA do cadastro, mas não confirma
+         nada — é a mesma fonte estatal, não uma medição independente;
+      2. quando as duas áreas existem e DIVERGEM (5 casos, 0,7%), o próprio
+         Estado publicou dois números para o mesmo auto. Isso é exibido lado a
+         lado, como evidência, e continua sendo a pessoa quem decide.
+
+    NENHUM APURADO NOVO
+    --------------------
+    Seria tentador transformar a divergência de áreas em resposta automática.
+    Não vira: o item 4.9 pergunta questão jurídica, não "os dois números são
+    diferentes". A fonte 4 acrescenta evidência e nada além disso.
+
+    UMA OBSERVAÇÃO DE DATA QUE, DESTA VEZ, NÃO É ARMADILHA
+    -------------------------------------------------------
+    2.298 dos 2.348 embargos (97,9%) são do MESMO DIA do auto. Na notificação
+    o mesmo dia servia para DESCARTAR um achado falso; aqui ele serve para o
+    contrário: confirma que termo e auto documentam a mesma fiscalização, que
+    é justamente o que autoriza ler a área do termo ao lado da do auto.
+    """
+    __tablename__ = "termos"
+
+    num_termo = Column(String, primary_key=True)
+    tipo = Column(String, index=True, nullable=False)     # embargo|apreensao|suspensao|demolicao
+    num_auto = Column(String, index=True, nullable=False)
+
+    data = Column(String, nullable=True)
+    municipio = Column(String, nullable=True)
+    uf = Column(String, nullable=True)
+    area = Column(String, nullable=True)                  # QTD_AREA_EMBARGADA, em hectares
+    tipo_area = Column(String, nullable=True)             # Desmatamento | Atividade | ...
+    sit_desembargo = Column(String, nullable=True)
+    dat_desembargo = Column(String, nullable=True)
+    des_desembargo = Column(String, nullable=True)
+    descricao = Column(String, nullable=True)             # o que o termo determina
+    localizacao = Column(String, nullable=True)
+    forma_entrega = Column(String, nullable=True)
+    justificativa = Column(String, nullable=True)
+    valor = Column(String, nullable=True)                 # apreensão / demolição
+    num_ordem_fiscalizacao = Column(String, nullable=True)
+    unid_ordenadora = Column(String, nullable=True)
+
+    carregado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class CacheConsulta(Base):
     """
     Cache de consultas a fontes externas.
