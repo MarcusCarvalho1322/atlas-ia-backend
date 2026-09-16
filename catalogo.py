@@ -44,6 +44,64 @@ def _indices():
     )
 
 
+# ═══════════════════════════════════════════════════════════════════════════
+#  A PROCEDÊNCIA DAS TAXAS DE ÊXITO — e o que foi possível verificar
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# As 28 teses do catálogo trazem uma "taxa de êxito" (72%, 95%, 55%...). Esses
+# percentuais são a informação de maior risco do produto inteiro, e o motivo é
+# simples: são a única coisa que o sistema afirma sem conseguir mostrar de onde
+# tirou.
+#
+# O próprio catálogo declara a origem — os dois sistemas anteriores. Nenhum
+# deles cita estudo, amostra, tribunal ou período. E não há de onde tirar: para
+# calcular "taxa de êxito por tese" seria preciso uma base que registrasse QUAL
+# TESE foi suscitada em cada defesa e como cada uma foi decidida. Essa base não
+# existe publicamente — nem no IBAMA, nem na PGFN, nem no CNJ.
+#
+# O que EXISTE, e foi medido: o IBAMA publica os julgamentos de auto de
+# infração das 27 UFs. Os números de _BASE_EMPIRICA saíram desse arquivo, lidos
+# na íntegra. Não substituem uma taxa por tese — medem outra coisa, e dizem
+# qual. Mas são verificáveis, que é exatamente o que falta às outras.
+_PROCEDENCIA_TAXAS = {
+    "origem": ["ATLAS-IA (app React)", "ATLAS FORENSE v2.1"],
+    "por_que": (
+        "Nenhuma base pública registra qual tese de defesa foi suscitada em cada "
+        "auto, nem como cada tese foi decidida. Logo, 'taxa de êxito por tese' não "
+        "é calculável a partir de dado aberto, e estes percentuais não puderam ser "
+        "confirmados em fonte primária. Antes de qualquer uso diante de cliente, "
+        "devem ser validados pela advogada responsável ou substituídos por dado "
+        "de acervo próprio."
+    ),
+}
+
+# Medido em 261.976 julgamentos de auto de infração publicados pelo IBAMA nas
+# 27 UFs (SICAFI · volumeJulgamentoAI), lidos na íntegra. 684 linhas malformadas
+# foram descartadas; valores em Cruzeiro, Cruzado e BTN foram excluídos das
+# razões, por não serem comparáveis a Real.
+_BASE_EMPIRICA = {
+    "fonte": "IBAMA — Dados Abertos, Julgamentos de Auto de Infração (SICAFI, 27 UFs)",
+    "universo": 261976,
+    "pagamento_mediano_sobre_o_valor_do_auto": "70,0%",
+    "pagaram_cerca_de_70_por_cento": "40,1%",
+    "pagaram_menos_que_o_auto": "78,5%",
+    "pagaram_MAIS_que_o_auto": "18,8%",
+    "extintos_por_prescricao": "2,09%",
+    "cancelados": "1,78%",
+    "ajuizados_ou_em_cobranca_judicial": "7,68%",
+    "sem_data_de_julgamento_no_registro": "33,6%",
+    "como_ler": (
+        "Estas são taxas de DESFECHO sobre todos os autos julgados, não taxas de "
+        "êxito de tese. O dado mais útil para dimensionar a conversa com o cliente "
+        "é o pagamento mediano de 70,0% do valor do auto: é o que acontece sem "
+        "defesa nenhuma, e portanto o piso contra o qual qualquer defesa deve ser "
+        "comparada. A concentração exata em torno de 70% sugere desconto legal "
+        "por pagamento — a base normativa deve ser confirmada pela advogada, "
+        "não foi verificada aqui."
+    ),
+}
+
+
 def _valor_em_risco(multa, teses: list[dict]) -> dict | None:
     """
     Traduz a auditoria em dinheiro — que é a linguagem em que o cliente decide.
@@ -73,6 +131,30 @@ def _valor_em_risco(multa, teses: list[dict]) -> dict | None:
                      "distintas não tem significado estatístico."),
         "aviso": ("Estimativa indicativa para dimensionar a causa. Não é previsão de resultado nem "
                   "promessa de êxito, e não substitui a análise do advogado responsável."),
+        # A PROCEDÊNCIA DA TAXA ACOMPANHA O NÚMERO, SEMPRE.
+        #
+        # Este campo existe porque o número acima é o mais perigoso que o
+        # sistema produz. Ele é uma multiplicação da multa por um percentual —
+        # e esse percentual NÃO tem fonte pública verificável.
+        #
+        # O catálogo declara a origem das taxas: os dois sistemas anteriores
+        # (ATLAS-IA React e ATLAS FORENSE v2.1). Nenhum dos dois cita estudo,
+        # amostra ou base. E não haveria de onde: nenhuma base pública
+        # registra QUAL TESE foi suscitada em cada defesa, de modo que
+        # "taxa de êxito por tese" não é calculável a partir de dado aberto.
+        #
+        # O número segue sendo exibido para ordenar teses entre si — para isso
+        # ele serve. Não serve para ser lido como probabilidade de ganho, e
+        # muito menos para virar promessa a cliente.
+        "procedencia_da_taxa": {
+            "origem": _PROCEDENCIA_TAXAS["origem"],
+            "verificada_em_fonte_publica": False,
+            "por_que": _PROCEDENCIA_TAXAS["por_que"],
+            "uso_legitimo": ("Ordenar as teses entre si e dimensionar a conversa. "
+                             "NÃO é probabilidade de êxito nem valor a receber."),
+        },
+        # O que é verificável fica ao lado, com a fonte.
+        "referencia_verificada": _BASE_EMPIRICA,
     }
 
 
