@@ -929,18 +929,27 @@ def backup(authorization: Optional[str] = Header(None), db: Session = Depends(ge
         "gerado_em": datetime.now(timezone.utc).isoformat(),
         "versao_do_formato": 1,
         "insubstituivel": {"casos": casos, "trabalho_comercial": trabalho, "acessos": acessos},
+        # ESTE INVENTÁRIO É A CONFERÊNCIA DA RESTAURAÇÃO, E POR ISSO TEM DE
+        # LISTAR TUDO. Ficou três fontes atrasado quando os recortes de 17/09
+        # entraram: quem restaurasse conferindo por ele daria a restauração por
+        # completa com julgamentos, UC e autorizações vazios — e sem erro
+        # nenhum na tela, porque aquilo que não é contado não é cobrado.
         "regeneravel_apenas_contagem": {
             "prospectos": db.query(Prospecto).count(),
             "termos": db.query(Termo).count(),
             "notificacoes": db.query(Notificacao).count(),
             "divida_ativa": db.query(DividaAtiva).count(),
+            "julgamentos": db.query(Julgamento).count(),
+            "autos_em_uc": db.query(AutoEmUC).count(),
+            "autorizacoes": db.query(Autorizacao).count(),
         },
         "como_restaurar": (
             "1) POST /api/prospeccao/atualizar para reminerar a carteira do arquivo do IBAMA. "
-            "2) ferramentas/carregar-termos.ps1, carregar-notificacoes.ps1 e "
-            "carregar-divida-ativa.ps1 para recarregar os recortes. "
+            "2) ferramentas/carregar-termos.ps1, carregar-notificacoes.ps1, "
+            "carregar-divida-ativa.ps1 e carregar-recortes.ps1 para recarregar os recortes. "
             "3) POST /api/restaurar com este arquivo inteiro no corpo. "
-            "Ao final, confira se as contagens batem com regeneravel_apenas_contagem."
+            "Ao final, confira se TODAS as contagens batem com regeneravel_apenas_contagem — "
+            "uma linha zerada ali é carga que faltou, não fonte que não existe."
         ),
     }
 
