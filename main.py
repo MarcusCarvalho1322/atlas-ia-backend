@@ -17,7 +17,7 @@ Nenhuma tese jurídica, dado de caso ou fonte foi inventada — ver
 geo_service.py e ai_service.py para a proveniência de cada peça.
 """
 import os
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Optional, Any
 
@@ -775,6 +775,193 @@ def emitir_anexo_juridico(req: AuditoriaRequest, authorization: Optional[str] = 
                req.numAuto or (str(req.casoId) if req.casoId else None))
     completo = catalogo.executar_auditoria(req.respostas, req.valorMulta)
     return catalogo.anexo_juridico(completo)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+#  CÓPIA DE SEGURANÇA
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# NEM TUDO QUE ESTÁ NO BANCO PRECISA DE BACKUP — e confundir as duas coisas
+# produziria um arquivo enorme que ninguém guarda.
+#
+# O banco mistura duas naturezas de dado:
+#
+#   REGENERÁVEL     a carteira de prospectos, os termos, as notificações e a
+#                   dívida ativa. Tudo recorte de arquivo público. Se sumir,
+#                   uma mineração e três cargas trazem de volta em minutos, e
+#                   os arquivos de origem já estão na máquina.
+#
+#   INSUBSTITUÍVEL  o que foi produzido por PESSOAS: os casos abertos com sua
+#                   auditoria, o status comercial de cada auto — selecionado,
+#                   contatado, descartado, cliente —, as notas e o registro de
+#                   acesso. Isso não existe em fonte nenhuma. Se sumir, sumiu.
+#
+# O backup leva o insubstituível inteiro e, do regenerável, apenas a CONTAGEM
+# — que serve para conferir, depois de restaurar, se a remineração trouxe o
+# mesmo volume. O arquivo fica pequeno, e arquivo pequeno é arquivo que
+# alguém efetivamente guarda.
+#
+# Por que agora: o banco de produção é o plano gratuito do Render, que expira
+# e é apagado com o que tem dentro. Enquanto a migração para o plano pago não
+# acontece, este arquivo é a diferença entre perder uma data e perder o
+# trabalho da equipe inteira.
+
+@app.get("/api/backup")
+def backup(authorization: Optional[str] = Header(None), db: Session = Depends(get_db)):
+    """
+    Devolve tudo que NÃO se regenera a partir de fonte pública.
+    """
+    nome = _checar_auth(authorization)
+    _registrar(db, nome, "gerou-backup", None)
+
+    casos = [c.to_dict() for c in db.query(Caso).all()]
+
+    # Só o que a equipe tocou. Prospecto em "novo" e sem nota é exatamente o
+    # que a mineração recria — levá-lo seria inchar o arquivo com o que já
+    # sabemos reproduzir.
+    trabalho = [{"num_auto": p.num_auto, "status": p.status, "notas": p.notas,
+                 "atualizado_em": p.atualizado_em.isoformat() if p.atualizado_em else None}
+                for p in db.query(Prospecto)
+                          .filter((Prospecto.status != "novo") | (Prospecto.notas.isnot(None)))
+                          .all()]
+
+    acessos = [a.to_dict() for a in db.query(Acesso).order_by(Acesso.em).all()]
+
+    return {
+        "gerado_em": datetime.now(timezone.utc).isoformat(),
+        "versao_do_formato": 1,
+        "insubstituivel": {"casos": casos, "trabalho_comercial": trabalho, "acessos": acessos},
+        "regeneravel_apenas_contagem": {
+            "prospectos": db.query(Prospecto).count(),
+            "termos": db.query(Termo).count(),
+            "notificacoes": db.query(Notificacao).count(),
+            "divida_ativa": db.query(DividaAtiva).count(),
+        },
+        "como_restaurar": (
+            "1) POST /api/prospeccao/atualizar para reminerar a carteira do arquivo do IBAMA. "
+            "2) ferramentas/carregar-termos.ps1, carregar-notificacoes.ps1 e "
+            "carregar-divida-ativa.ps1 para recarregar os recortes. "
+            "3) POST /api/restaurar com este arquivo inteiro no corpo. "
+            "Ao final, confira se as contagens batem com regeneravel_apenas_contagem."
+        ),
+    }
+
+
+class Restauracao(BaseModel):
+    insubstituivel: dict
+    versao_do_formato: Optional[int] = None
+    gerado_em: Optional[str] = None
+
+
+@app.post("/api/restaurar")
+def restaurar(req: Restauracao, authorization: Optional[str] = Header(None),
+              db: Session = Depends(get_db)):
+    """
+    Repõe o que o backup levou. NUNCA APAGA NADA.
+
+    Idempotente, e só acrescenta ou atualiza. É deliberado: restaurar um
+    backup velho por engano num banco vivo não pode destruir o que foi feito
+    depois dele.
+
+    E "não destruir" aqui é regra de código, não intenção. O primeiro teste
+    desta rota mostrou que a versão anterior sobrescrevia com a nota antiga
+    uma nota escrita DEPOIS do backup — perda silenciosa, exatamente o que a
+    rota existe para evitar. A regra que resolve:
+
+      · registro que ainda NÃO tem trabalho (status "novo", sem nota) é sempre
+        reposto — é o caso do banco recém-reminerado depois do desastre;
+      · registro que JÁ tem trabalho e foi tocado depois da data do backup é
+        PRESERVADO, e volta em `preservados_por_serem_mais_novos`.
+
+    O status comercial só é reposto em prospecto que EXISTE. Se a carteira
+    ainda não foi reminerada, esses itens voltam em `nao_encontrados` e a
+    chamada pode ser repetida depois da mineração, sem efeito colateral.
+    """
+    nome = _checar_auth(authorization)
+    _registrar(db, nome, "restaurou-backup", req.gerado_em or None)
+
+    def _quando(v):
+        try:
+            return datetime.fromisoformat(v) if v else None
+        except (ValueError, TypeError):
+            return None
+
+    ins = req.insubstituivel or {}
+    preservados = []
+    casos_novos = casos_atualizados = 0
+    for c in ins.get("casos") or []:
+        cid = (c.get("id") or "").strip()
+        if not cid:
+            continue
+        linha = db.query(Caso).filter(Caso.id == cid).first()
+        if linha:
+            do_backup, no_banco = _quando(c.get("updatedAt")), linha.updated_at
+            if do_backup and no_banco and no_banco > do_backup:
+                preservados.append(f"caso {cid}")
+                continue
+            casos_atualizados += 1
+        else:
+            linha = Caso(id=cid)
+            db.add(linha)
+            casos_novos += 1
+        linha.form_data = c.get("formData") or {}
+        linha.audit_result = c.get("auditResult")
+        linha.geo_verificacoes = c.get("geoVerificacoes") or []
+
+    repostos = 0
+    nao_encontrados = []
+    for t in ins.get("trabalho_comercial") or []:
+        na = (t.get("num_auto") or "").strip()
+        if not na:
+            continue
+        p = db.query(Prospecto).filter(Prospecto.num_auto == na).first()
+        if not p:
+            nao_encontrados.append(na)
+            continue
+        # Só preserva o que JÁ tem trabalho feito. Prospecto recém-reminerado
+        # está em "novo" e sem nota: esse é o alvo da restauração, ainda que
+        # sua data de atualização seja mais recente que a do backup.
+        tem_trabalho = (p.status or "novo") != "novo" or p.notas
+        if tem_trabalho:
+            do_backup, no_banco = _quando(t.get("atualizado_em")), p.atualizado_em
+            if do_backup and no_banco and no_banco > do_backup:
+                preservados.append(na)
+                continue
+        if t.get("status"):
+            p.status = t["status"]
+        if t.get("notas") is not None:
+            p.notas = t["notas"]
+        repostos += 1
+
+    # O registro de acesso é histórico: entra sem sobrescrever o que já existe.
+    ja = {(a.quem, a.acao, a.alvo, a.em.isoformat() if a.em else None)
+          for a in db.query(Acesso).all()}
+    acessos_repostos = 0
+    for a in ins.get("acessos") or []:
+        if (a.get("quem"), a.get("acao"), a.get("alvo"), a.get("em")) in ja:
+            continue
+        try:
+            em = datetime.fromisoformat(a["em"]) if a.get("em") else None
+        except (ValueError, TypeError):
+            em = None
+        db.add(Acesso(quem=a.get("quem") or "?", acao=a.get("acao") or "?",
+                      alvo=a.get("alvo"), em=em))
+        acessos_repostos += 1
+
+    db.commit()
+    return {
+        "casos_criados": casos_novos,
+        "casos_atualizados": casos_atualizados,
+        "trabalho_comercial_reposto": repostos,
+        "acessos_repostos": acessos_repostos,
+        "nao_encontrados_na_carteira": nao_encontrados[:50],
+        "total_nao_encontrados": len(nao_encontrados),
+        "preservados_por_serem_mais_novos": preservados[:50],
+        "total_preservados": len(preservados),
+        "aviso": ("Itens em nao_encontrados são autos que ainda não estão na carteira. "
+                  "Remine e repita esta chamada — ela é idempotente."
+                  if nao_encontrados else "Restauração completa."),
+    }
 
 
 @app.get("/api/acessos")
