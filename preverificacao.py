@@ -34,6 +34,7 @@ como ausência no registro, com essas palavras.
 """
 from __future__ import annotations
 
+import re
 import unicodedata
 from datetime import date, timedelta  # noqa: F401  (timedelta usado nas notificações)
 from typing import Optional
@@ -52,6 +53,15 @@ JANELA_MULTIPLAS_DIAS = 30
 MARCO_PRA = date(2008, 7, 22)
 
 DECURSO_ANOS = 3
+
+# A conferência de 17/09 mostrou que esta ressalva existia em apenas uma das três
+# leituras do item 4.9. As outras duas diziam a procedência pelo rótulo do campo,
+# o que é correto mas não é uniforme — e num produto forense a ressalva não pode
+# depender de qual ramo do código a pessoa caiu.
+RESSALVA_AREA_TERMO = (
+    "a área exibida ao lado vem do TERMO lavrado na mesma fiscalização, não do "
+    "cadastro do auto. Confira no processo qual número sustentou o cálculo."
+)
 
 
 def _d(valor) -> Optional[date]:
@@ -119,6 +129,7 @@ def _apurar(p, reg: dict, irmaos: list) -> dict:
     """
     out: dict[str, dict] = {}
     fato, auto = _d(p.dt_fato), _d(p.dt_auto)
+
 
     # 6.1 — decurso entre o fato e a lavratura. Subtração pura.
     if fato and auto:
@@ -316,7 +327,7 @@ def _evidencia_notificacao(notifs: list, dt_auto) -> list[dict]:
         linhas = [("NUM_NOTIFICACAO", getattr(n, "num_notificacao", None)),
                   ("DAT_NOTIFICACAO", getattr(n, "dat_notificacao", None)),
                   ("PRAZO_APRESENTACAO", f"{prazo} dia(s)" if prazo else None),
-                  ("FORMA_ENTREGA", getattr(n, "forma_entrega", None)),
+                  ("FORMA_ENTREGA (notificação)", getattr(n, "forma_entrega", None)),
                   ("SIT_ATENDIDA", getattr(n, "sit_atendida", None)),
                   ("DES_OCORRENCIA", getattr(n, "des_ocorrencia", None))]
 
@@ -415,7 +426,8 @@ def _evidencia_termo(termos: list, reg: dict) -> list[dict]:
         elif abs(area_emb - area_auto) <= max(area_auto * 0.01, 0.0001):
             leitura = ("As duas áreas publicadas pelo IBAMA para este auto coincidem. Coincidir "
                        "não é confirmar: é a mesma fonte estatal publicada duas vezes, não uma "
-                       "segunda medição. Serve para descartar erro de transcrição, nada além.")
+                       "segunda medição. Serve para descartar erro de transcrição, nada além. "
+                       "ATENÇÃO à procedência: " + RESSALVA_AREA_TERMO)
         else:
             dif = area_emb - area_auto
             leitura = (f"DIVERGÊNCIA: o próprio IBAMA publicou duas áreas diferentes para este "
@@ -423,7 +435,8 @@ def _evidencia_termo(termos: list, reg: dict) -> list[dict]:
                        f"termo de embargo, diferença de {_ha(abs(dif))} "
                        f"({'a maior' if dif > 0 else 'a menor'} no termo). Na carteira medida isso "
                        f"ocorre em 0,7% dos casos com as duas áreas. Sendo a área a base do "
-                       f"cálculo, confira no processo qual número sustentou o valor da multa.")
+                       f"cálculo, confira no processo qual número sustentou o valor da multa. "
+                       f"ATENÇÃO à procedência: {RESSALVA_AREA_TERMO}")
         ev.append(_ev("4.9", "Área: cadastro do auto × termo de embargo", linhas, leitura))
 
         if area_auto is None:
@@ -465,7 +478,7 @@ def _evidencia_termo(termos: list, reg: dict) -> list[dict]:
         linhas = [("NUM_TAD", getattr(t, "num_termo", None)),
                   ("DATA", getattr(t, "data", None)),
                   ("VALOR", getattr(t, "valor", None)),
-                  ("FORMA_ENTREGA", getattr(t, "forma_entrega", None)),
+                  ("FORMA_ENTREGA (termo)", getattr(t, "forma_entrega", None)),
                   ("DES_TAD", getattr(t, "descricao", None)),
                   ("DES_JUSTIFICATIVA", getattr(t, "justificativa", None)),
                   ("DES_LOCALIZACAO", getattr(t, "localizacao", None))]
@@ -485,7 +498,7 @@ def _evidencia_termo(termos: list, reg: dict) -> list[dict]:
         ev.append(_ev("1.12", "Ordem de fiscalização: auto × termo",
                       [("ORDEM no auto", ordem_auto or "— vazia no cadastro"),
                        ("ORDEM no(s) termo(s)", "; ".join(ordens)),
-                       ("UNID_ORDENADORA", "; ".join(sorted({(getattr(t, "unid_ordenadora", "") or "").strip()
+                       ("UNID_ORDENADORA (termo)", "; ".join(sorted({(getattr(t, "unid_ordenadora", "") or "").strip()
                                                              for t in termos
                                                              if getattr(t, "unid_ordenadora", None)})) or None)],
                       ("As ordens de fiscalização do auto e do termo NÃO coincidem. Podem ser "
@@ -678,8 +691,8 @@ def _evidenciar(p, reg: dict, irmaos_todos: list) -> list[dict]:
     # 1.12 — ordem de fiscalização.
     if g("ORDEM_FISCALIZACAO") or g("UNID_ORDENADORA"):
         ev.append(_ev("1.12", "Ordem de fiscalização registrada",
-            [("ORDEM_FISCALIZACAO", g("ORDEM_FISCALIZACAO")),
-             ("UNID_ORDENADORA", g("UNID_ORDENADORA"))],
+            [("ORDEM_FISCALIZACAO (auto)", g("ORDEM_FISCALIZACAO")),
+             ("UNID_ORDENADORA (auto)", g("UNID_ORDENADORA"))],
             "O cadastro registra a ordem que autorizou a diligência. Confira se a OS está juntada."))
     else:
         ev.append(_ev("1.12", "Sem ordem de fiscalização no registro", [],
@@ -698,8 +711,8 @@ def _evidenciar(p, reg: dict, irmaos_todos: list) -> list[dict]:
     forma, ciencia = g("FORMA_ENTREGA"), _d(p.dt_ciencia)
     if forma or ciencia:
         ev.append(_ev("3.1", "Como a notificação foi entregue",
-            [("FORMA_ENTREGA", forma),
-             ("DAT_CIENCIA_AUTUACAO", ciencia.isoformat() if ciencia else None)],
+            [("FORMA_ENTREGA (auto)", forma),
+             ("DAT_CIENCIA_AUTUACAO (auto)", ciencia.isoformat() if ciencia else None)],
             {"Representante": "Entregue a representante — confira a procuração nos autos.",
              "Edital": "Notificação por edital — confira a tentativa prévia de AR frustrada.",
              "Correios": "Entrega por Correios — confira quem assinou o AR.",
@@ -723,8 +736,12 @@ def _evidenciar(p, reg: dict, irmaos_todos: list) -> list[dict]:
     qt, infra = g("QT_AREA"), g("INFRACAO_AREA")
     if qt:
         ev.append(_ev("4.9", "Área no registro",
-            [("QT_AREA", qt), ("INFRACAO_AREA", infra),
-             ("WKT_GE_AREA_AUTUADA", "presente" if g("WKT_GE_AREA_AUTUADA") else None)],
+            [("QT_AREA (auto)", qt), ("INFRACAO_AREA (auto)", infra),
+             # O polígono tem milhares de caracteres e não cabe na tela. O que se
+             # informa é a PRESENÇA dele, e o rótulo diz isso — "presente" ao lado
+             # do nome do campo parecia o valor do campo.
+             ("GEOMETRIA DA ÁREA (auto) — consta no cadastro?",
+              "sim" if g("WKT_GE_AREA_AUTUADA") else None)],
             "Confira se a área do auto coincide com a que serviu de base ao cálculo."))
     elif (infra or "").lower() == "desmatamento":
         ev.append(_ev("4.9", "Auto de desmatamento SEM área no registro", [("INFRACAO_AREA", infra)],
@@ -796,6 +813,7 @@ def _evidenciar(p, reg: dict, irmaos_todos: list) -> list[dict]:
             [("SOLICITACAO_RECURSO", g("SOLICITACAO_RECURSO"))],
             "Há protocolo de recurso no cadastro. Confira se o conhecimento foi "
             "condicionado a depósito, caução ou arrolamento."))
+
 
     # 1.1 — identificação.
     ev.append(_ev("1.1", "Identificação no registro público",
