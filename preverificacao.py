@@ -559,13 +559,21 @@ def _evidencia_autorizacao(autorizacoes: list, p) -> list[dict]:
     dt_fato = _d(getattr(p, "dt_fato", None)) or _d(getattr(p, "dt_auto", None))
     mun_auto = (getattr(p, "municipio", "") or "").strip()
 
-    vigentes, vencidas, outras = [], [], []
+    # Quatro situações, não três. A autorização emitida DEPOIS da data do fato
+    # tinha ido parar em "janela não comparável", e não é isso: a janela é
+    # perfeitamente comparável e a resposta é que ela não cobria o fato. São
+    # coisas opostas — uma diz "não sei", a outra diz "sei, e é posterior" —,
+    # e a posterior costuma ser a regularização feita depois da autuação, que
+    # é assunto de dosimetria, não de licitude da conduta.
+    vigentes, vencidas, posteriores, outras = [], [], [], []
     for a in autorizacoes:
         emi, val = _d(getattr(a, "data_emissao", None)), _d(getattr(a, "data_validade", None))
         if dt_fato and emi and val and emi <= dt_fato <= val:
             vigentes.append((a, emi, val))
         elif dt_fato and val and val < dt_fato:
             vencidas.append((a, emi, val))
+        elif dt_fato and emi and emi > dt_fato:
+            posteriores.append((a, emi, val))
         else:
             outras.append((a, emi, val))
 
@@ -577,7 +585,7 @@ def _evidencia_autorizacao(autorizacoes: list, p) -> list[dict]:
 
     # Mais recente primeiro dentro de cada balde: entre autorizações do mesmo
     # CNPJ, a que venceu ontem diz mais sobre o caso do que a de 2015.
-    for lista in (vigentes, vencidas, outras):
+    for lista in (vigentes, vencidas, posteriores, outras):
         lista.sort(key=lambda t: (t[2] or date.min, t[1] or date.min), reverse=True)
 
     mostradas = 0
@@ -620,9 +628,15 @@ def _evidencia_autorizacao(autorizacoes: list, p) -> list[dict]:
           "O CNPJ autuado TINHA autorização, e a janela de validade fechou ANTES da data "
           "do fato. Isso é situação diferente de nunca ter tido: alcança a discussão "
           "sobre boa-fé e sobre a dosimetria.")
+    bloco("Autorização de supressão EMITIDA DEPOIS do fato", posteriores,
+          "A autorização é POSTERIOR à data do fato: não amparava a conduta autuada. "
+          "Não é 'não sei' — é 'sei, e não cobria'. Costuma ser regularização feita "
+          "depois da autuação, o que alcança dosimetria e boa-fé, não a licitude da "
+          "conduta. Confira no processo se houve pedido anterior em análise.")
     bloco("Autorização de supressão do mesmo CNPJ (janela não comparável)", outras,
           "O Sinaflor registra autorização do CNPJ autuado, mas as datas não permitem "
-          "dizer se estava vigente na data do fato — falta a data de um dos lados.")
+          "dizer se estava vigente na data do fato — falta a data de um dos lados, ou "
+          "o próprio auto não traz data do fato.")
 
     # O resto conta a partir do que REALMENTE foi exibido, não de um número fixo:
     # cada balde mostra até três, então o total exibido varia de 0 a 9.
@@ -631,6 +645,7 @@ def _evidencia_autorizacao(autorizacoes: list, p) -> list[dict]:
         ev.append(_ev("2.1", f"Mais {restantes} autorização(ões) do mesmo CNPJ",
                       [("VIGENTES na data do fato", len(vigentes) or None),
                        ("VENCIDAS antes do fato", len(vencidas) or None),
+                       ("EMITIDAS depois do fato", len(posteriores) or None),
                        ("sem janela comparável", len(outras) or None)],
                       "O CNPJ acumula outras autorizações no Sinaflor. Acima estão as "
                       "mais recentes de cada situação; vale varrer a lista completa "
