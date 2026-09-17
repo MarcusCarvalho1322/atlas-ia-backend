@@ -518,3 +518,72 @@ class CacheConsulta(Base):
     resultado = Column(JSON, nullable=True)
     buscado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
     expira_em = Column(DateTime, nullable=True)
+
+
+class AutoIcmbio(Base):
+    """
+    Auto de infração lavrado pelo ICMBio, do CNPJ autuado.
+
+    POR QUE ISTO EXISTE
+    -------------------
+    O IBAMA não publica auto do ICMBio: são órgãos diferentes. O geoserviço da
+    INDE publica 41.839 deles, com número do auto, valor, artigo enquadrado,
+    termos de embargo e apreensão, processo e situação de julgamento — e, ao
+    contrário da carteira do IBAMA, com histórico que vai de 2008 a 2026.
+
+    É esse histórico que importa. O item 5.3 pergunta por reincidência, que
+    exige autuação ANTERIOR, e até aqui o sistema só sabia comparar autos de
+    2026 entre si. O item 2.2 pergunta por autuação paralela de outro órgão
+    sobre o mesmo fato, e nenhuma base respondia.
+
+    O QUE FOI DEIXADO DE FORA, DE PROPÓSITO
+    ---------------------------------------
+    O ICMBio publica CPF COMPLETO, sem máscara, em 33.269 dos 41.839 registros,
+    e o NOME COMPLETO do autuado em todos eles. O IBAMA não faz isso — mascara
+    o documento —, e este sistema também não faz.
+
+    Então nem o nome nem o CPF atravessam a extração. Não chegam ao arquivo,
+    não chegam ao banco, não chegam à tela. Entram apenas os 3.086 registros de
+    PESSOA JURÍDICA, e sem o nome: o CNPJ basta para o cruzamento, e guardar
+    dado pessoal que não é necessário seria criar exposição sem finalidade.
+    A decisão é a mesma do Sinaflor, por razão adicional.
+
+    O VÍNCULO É O CNPJ, NÃO O NÚMERO DO AUTO
+    ----------------------------------------
+    Auto do ICMBio do mesmo CNPJ não é, necessariamente, sobre o mesmo fato do
+    auto do IBAMA em análise. Pode ser outro imóvel, outro estado, outro ano.
+    Por isso nada aqui vira resposta: vira evidência, com data, município e
+    unidade de conservação ao lado, e com a ressalva escrita.
+
+    A CHAVE É COMPOSTA
+    ------------------
+    O número do auto se repete 22 vezes no arquivo, para fatos distintos —
+    mesmo número, anos e municípios diferentes. Chavear só pelo número
+    descartaria o outro fato em silêncio, que foi exatamente o defeito que o
+    teste pegou no Sinaflor. A chave é número + assinatura de data, município e
+    processo.
+    """
+    __tablename__ = "autos_icmbio"
+
+    id = Column(String, primary_key=True)                 # numero#assinatura
+    num_auto_icmbio = Column(String, index=True, nullable=False)
+    cnpj = Column(String, index=True, nullable=False)
+    data = Column(String, nullable=True)
+    ano = Column(String, index=True, nullable=True)
+    valor_multa = Column(String, nullable=True)
+    tipo = Column(String, nullable=True)
+    tipo_infracao = Column(String, nullable=True)
+    artigo_1 = Column(String, nullable=True)
+    artigo_2 = Column(String, nullable=True)
+    nome_uc = Column(String, nullable=True)
+    cnuc = Column(String, nullable=True)
+    municipio = Column(String, nullable=True)
+    uf = Column(String, nullable=True)
+    termos_embargo = Column(String, nullable=True)
+    termos_apreensao = Column(String, nullable=True)
+    ordem_fiscalizacao = Column(String, nullable=True)
+    processo = Column(String, nullable=True)
+    julgamento = Column(String, nullable=True)
+    tem_embargo = Column(String, nullable=True)
+    tem_apreensao = Column(String, nullable=True)
+    carregado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))

@@ -844,6 +844,94 @@ def _evidencia_teto(p, reg: dict) -> list[dict]:
     return ev
 
 
+def _evidencia_icmbio(autos: list, p) -> list[dict]:
+    """
+    Autos de infração do ICMBio do mesmo CNPJ — itens 2.2 e 5.3.
+
+    DOIS ITENS, DOIS SENTIDOS, E A DATA SEPARA OS DOIS.
+
+    O item 2.2 pergunta por autuação paralela sobre o mesmo fato. O 5.3 pergunta
+    por reincidência, que exige autuação ANTERIOR. O mesmo registro serve aos
+    dois, mas não ao mesmo tempo: o que é do mesmo período vai para o 2.2, e o
+    que é anterior vai para o 5.3. Registro posterior ao auto não serve a
+    nenhum dos dois e por isso não é exibido — reincidência para a frente não
+    existe, e autuação posterior não é paralela.
+
+    O QUE ISTO NÃO PROVA, E ESTÁ ESCRITO EM CADA EVIDÊNCIA.
+    O vínculo é o CNPJ, não o número do auto nem o fato. Auto do ICMBio do
+    mesmo CNPJ pode ser outro imóvel, outro estado, outro ano. E reincidência,
+    no art. 6º, IV da Lei 9.605/98, exige decisão definitiva anterior — o
+    registro do ICMBio traz a autuação, não o trânsito. Então isto é base
+    factual para DISCUTIR reincidência, nunca para afirmá-la.
+    """
+    if not autos:
+        return []
+    dt = _d(getattr(p, "dt_fato", None)) or _d(getattr(p, "dt_auto", None))
+    RESSALVA = (" ATENÇÃO À PROCEDÊNCIA: o vínculo aqui é o CNPJ do autuado, não o "
+                "número do auto nem o fato. Pode ser outro imóvel, outro estado, outro "
+                "período. O ICMBio publica a autuação, não o trânsito em julgado — e "
+                "reincidência, no art. 6º, IV da Lei 9.605/98, exige decisão definitiva "
+                "anterior. Confira no processo antes de usar.")
+
+    # Um mesmo registro pode servir aos dois itens, e serve mesmo: um auto do
+    # ICMBio de seis meses antes é ANTERIOR (5.3) e é PRÓXIMO (2.2). Separar em
+    # baldes exclusivos escondia metade do achado — por isso a classificação é
+    # por critério, não por exclusão.
+    anteriores = [(a, d) for a, d in ((x, _d(getattr(x, "data", None))) for x in autos)
+                  if dt and d and d < dt]
+    proximos = [(a, d) for a, d in ((x, _d(getattr(x, "data", None))) for x in autos)
+                if dt and d and abs((d - dt).days) <= 365]
+    sem_data = [(a, None) for a in autos if not _d(getattr(a, "data", None))]
+    mesmo_periodo = proximos + sem_data
+    anteriores.sort(key=lambda t: t[1] or date.min, reverse=True)
+    mesmo_periodo.sort(key=lambda t: t[1] or date.min, reverse=True)
+
+    def linhas(a, d):
+        return [("AUTO DO ICMBIO", getattr(a, "num_auto_icmbio", None)),
+                ("DATA", d.isoformat() if d else (getattr(a, "data", None) or "— sem data")),
+                ("DATA DO FATO (auto do IBAMA)", dt.isoformat() if dt else "— sem data"),
+                ("UNIDADE DE CONSERVAÇÃO", getattr(a, "nome_uc", None)),
+                ("MUNICÍPIO / UF", f"{getattr(a, 'municipio', None) or '—'}/"
+                                   f"{getattr(a, 'uf', None) or '—'}"),
+                ("TIPO DE INFRAÇÃO", getattr(a, "tipo_infracao", None)),
+                ("ARTIGO ENQUADRADO", " · ".join(
+                    f"art. {x}" for x in (getattr(a, "artigo_1", None), getattr(a, "artigo_2", None))
+                    if x and str(x) != "0") or None),
+                ("VALOR DA MULTA", _brl(getattr(a, "valor_multa", None))
+                 if getattr(a, "valor_multa", None) else None),
+                ("EMBARGO / APREENSÃO", f"embargo: {getattr(a, 'tem_embargo', None) or '—'} · "
+                                        f"apreensão: {getattr(a, 'tem_apreensao', None) or '—'}"),
+                ("PROCESSO", getattr(a, "processo", None)),
+                ("FONTE", "ICMBio — Autos de Infração, geoserviço da INDE")]
+
+    ev: list[dict] = []
+    for a, d in anteriores[:3]:
+        ev.append(_ev("5.3", "Autuação ANTERIOR do mesmo CNPJ, pelo ICMBio", linhas(a, d),
+                      "O CNPJ autuado já havia sido autuado pelo ICMBio antes da data deste "
+                      "fato. É a base factual que o item 5.3 pede para discutir — ou afastar — "
+                      "reincidência, e nenhuma outra fonte do sistema a trazia: a carteira do "
+                      "IBAMA é de 2026 e só compara autos entre si." + RESSALVA))
+    for a, d in mesmo_periodo[:3]:
+        ev.append(_ev("2.2", "ICMBio: autuação do mesmo CNPJ por outro órgão federal, no mesmo período",
+                      linhas(a, d),
+                      "O ICMBio autuou o mesmo CNPJ em período próximo ao deste fato. Não é o "
+                      "órgão estadual que o item 2.2 pergunta, mas é sobreposição real de "
+                      "atuação federal, e alcança a discussão de competência e de bis in "
+                      "idem." + RESSALVA))
+    # O resto conta os autos DISTINTOS que não foram exibidos — um registro que
+    # aparece nos dois baldes não pode ser contado duas vezes.
+    exibidos = {id(a) for a, _ in anteriores[:3]} | {id(a) for a, _ in mesmo_periodo[:3]}
+    resto = len(autos) - len(exibidos)
+    if resto > 0:
+        ev.append(_ev("5.3", f"ICMBio: mais {resto} auto(s) do mesmo CNPJ",
+                      [("ANTERIORES a este fato", len(anteriores) or None),
+                       ("dentro de 1 ano do fato", len(proximos) or None),
+                       ("sem data publicada", len(sem_data) or None)],
+                      "O CNPJ acumula outros autos do ICMBio. Acima estão os mais recentes de "
+                      "cada situação; vale varrer a lista completa." + RESSALVA))
+    return ev
+
+
 def _evidenciar(p, reg: dict, irmaos_todos: list) -> list[dict]:
     ev: list[dict] = []
     g = lambda n: _campo(reg, n)
@@ -1016,7 +1104,7 @@ def pre_verificar(p, irmaos_janela: list, irmaos_todos: list,
                   notificacoes: Optional[list] = None,
                   termos: Optional[list] = None,
                   uc=None, autorizacoes: Optional[list] = None,
-                  julgamento=None) -> dict:
+                  julgamento=None, icmbio: Optional[list] = None) -> dict:
     """
     p              — o Prospecto em análise
     irmaos_janela  — autos do mesmo documento e município em até 30 dias
@@ -1028,6 +1116,7 @@ def pre_verificar(p, irmaos_janela: list, irmaos_todos: list,
     uc             — linha de AutoEmUC, quando a coordenada cai dentro de UC federal
     autorizacoes   — autorizações do Sinaflor do MESMO CNPJ (não do mesmo auto)
     julgamento     — desfecho do auto no SICAFI, quando já julgado
+    icmbio         — autos do ICMBio do MESMO CNPJ (não do mesmo auto, e só PJ)
     """
     reg = getattr(p, "registro", None) or {}
     apurados = _apurar(p, reg, irmaos_janela)
@@ -1036,7 +1125,8 @@ def pre_verificar(p, irmaos_janela: list, irmaos_todos: list,
                   + _evidencia_notificacao(notificacoes or [], p.dt_auto)
                   + _evidencia_termo(termos or [], reg)
                   + _evidencia_uc(uc)
-                  + _evidencia_autorizacao(autorizacoes or [], p))
+                  + _evidencia_autorizacao(autorizacoes or [], p)
+                  + _evidencia_icmbio(icmbio or [], p))
     # O DESFECHO NÃO É EVIDÊNCIA DO PROTOCOLO — VAI SEPARADO, DE PROPÓSITO.
     #
     # O julgamento não responde item nenhum: ele diz se ainda existe caso. Auto

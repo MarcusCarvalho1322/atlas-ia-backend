@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 
 from db import Base, engine, get_db, SessionLocal, descrever_banco, garantir_colunas
 from models import (Caso, Prospecto, DividaAtiva, Notificacao, Termo, Acesso,
-                    Julgamento, AutoEmUC, Autorizacao)
+                    Julgamento, AutoEmUC, Autorizacao, AutoIcmbio)
 import geo_service
 import ai_service
 import catalogo
@@ -411,6 +411,14 @@ def pre_verificacao_do_caso(num_auto: str, authorization: Optional[str] = Header
     # Quem sabe ler a data é a pré-verificação; ela recebe tudo do CNPJ,
     # ordena de verdade e decide o que mostrar. O teto de 500 é só contenção:
     # o CNPJ mais carregado da carteira tem 211.
+    # Autos do ICMBio do mesmo CNPJ. Só PJ, e sem nome nem CPF — ver
+    # models.AutoIcmbio. O teto de 200 é contenção; o CNPJ mais carregado da
+    # carteira tem 14.
+    icmbio = []
+    if p.cnpj:
+        icmbio = (db.query(AutoIcmbio)
+                    .filter(AutoIcmbio.cnpj == p.cnpj).limit(200).all())
+
     autorizacoes = []
     if p.cnpj:
         autorizacoes = (db.query(Autorizacao)
@@ -424,7 +432,7 @@ def pre_verificacao_do_caso(num_auto: str, authorization: Optional[str] = Header
                                         divida=divida, escopo_divida=escopo,
                                         notificacoes=notifs, termos=termos,
                                         uc=uc, autorizacoes=autorizacoes,
-                                        julgamento=julgamento)
+                                        julgamento=julgamento, icmbio=icmbio)
 
 
 class CargaNotificacoes(BaseModel):
@@ -562,6 +570,14 @@ _RECORTES = {
                      ("nro_autorizacao", "cnpj", "data_emissao", "data_validade", "situacao",
                       "uf", "municipio", "atividade", "finalidade", "area_total", "imovel",
                       "car", "orgao_analise", "bioma")),
+    # Mesma razão de chave composta do Sinaflor: o número do auto do ICMBio se
+    # repete 22 vezes no arquivo, para fatos diferentes. Ver models.AutoIcmbio.
+    "autos_icmbio": (AutoIcmbio, "id",
+                     ("num_auto_icmbio", "cnpj", "data", "ano", "valor_multa", "tipo",
+                      "tipo_infracao", "artigo_1", "artigo_2", "nome_uc", "cnuc",
+                      "municipio", "uf", "termos_embargo", "termos_apreensao",
+                      "ordem_fiscalizacao", "processo", "julgamento",
+                      "tem_embargo", "tem_apreensao")),
 }
 
 
@@ -942,6 +958,7 @@ def backup(authorization: Optional[str] = Header(None), db: Session = Depends(ge
             "julgamentos": db.query(Julgamento).count(),
             "autos_em_uc": db.query(AutoEmUC).count(),
             "autorizacoes": db.query(Autorizacao).count(),
+            "autos_icmbio": db.query(AutoIcmbio).count(),
         },
         "como_restaurar": (
             "1) POST /api/prospeccao/atualizar para reminerar a carteira do arquivo do IBAMA. "

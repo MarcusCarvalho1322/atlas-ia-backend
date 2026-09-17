@@ -43,7 +43,8 @@ $arquivos = @(
   @{ nome="termos";       arq="termos.json";       chave="termos";        url="$base/api/termos/carregar";              campo="termos" },
   @{ nome="julgamentos";  arq="julgamentos.json";  chave="julgamentos";   url="$base/api/recorte/julgamentos/carregar"; campo="linhas" },
   @{ nome="uc";           arq="uc.json";           chave="autos_em_uc";   url="$base/api/recorte/uc/carregar";          campo="linhas" },
-  @{ nome="autorizacoes"; arq="sinaflor.json";     chave="autorizacoes";  url="$base/api/recorte/autorizacoes/carregar";campo="linhas" }
+  @{ nome="autorizacoes"; arq="sinaflor.json";     chave="autorizacoes";  url="$base/api/recorte/autorizacoes/carregar";campo="linhas" },
+  @{ nome="autos_icmbio"; arq="autos_icmbio.json"; chave="autos_icmbio";  url="$base/api/recorte/autos_icmbio/carregar";campo="linhas" }
 )
 
 $falta = $arquivos | Where-Object { -not (Test-Path (Join-Path $dir $_.arq)) }
