@@ -899,6 +899,195 @@ def _evidencia_deter(alertas: list, p) -> list[dict]:
     return ev
 
 
+# Classes de USO ANTRÓPICO na legenda do MapBiomas Coleção 11. Serve para uma
+# pergunta só: no ano anterior ao fato, aquele ponto já era uso, ou ainda era
+# vegetação? A lista vem do CSV oficial de códigos de legenda, não de palpite.
+_MB_ANTROPICO = {9, 15, 18, 19, 20, 21, 23, 24, 25, 29, 30, 31, 33, 35, 36,
+                 39, 40, 41, 46, 47, 48, 62}
+
+_RESSALVA_MB = (
+    " LIMITE: o auto informa um PONTO, não o polígono da área. Isto lê 30 m × 30 m "
+    "no centro e 150 m × 150 m em volta — não a área autuada, e a homogeneidade da "
+    "janela está escrita ao lado justamente para mostrar se o ponto está no meio de "
+    "uma mancha ou na borda dela. O MapBiomas é classificação automática de imagem "
+    "Landsat, validada por amostragem (cerca de 85 mil pontos, série 1985–2024), e "
+    "não substitui vistoria: divergência aqui é motivo para conferir o processo, "
+    "nunca conclusão sobre o fato."
+)
+
+_RESSALVA_MALHA = (
+    " LIMITE DA MALHA: a comparação usa a malha municipal do IBGE em qualidade "
+    "intermediária; nas divisas o traçado tem imprecisão de centenas de metros. Por "
+    "isso a distância vai escrita em vez de um sim ou não — abaixo de 1 km isto não "
+    "indica erro nenhum, apenas divisa."
+)
+
+
+def _km(v) -> str:
+    """Distância em pt-BR. Escrever 2.792.7 km por descuido de formatação faria a
+    pessoa ler 2,79 km e descartar o achado — o número tem de sair certo."""
+    try:
+        return f"{float(v):,.1f}".replace(",", "·").replace(".", ",").replace("·", ".") + " km"
+    except Exception:
+        return "—"
+
+
+def _coordenada_degenerada(p) -> Optional[str]:
+    """Defeitos da própria coordenada, que explicam a distância melhor do que ela.
+    Brasil continental: latitude entre -34 e +6, longitude entre -74 e -34."""
+    try:
+        lat, lon = float(p.lat), float(p.lon)
+    except Exception:
+        return None
+    if abs(lat - lon) < 1e-9:
+        return ("latitude e longitude são o MESMO número neste auto, o que não "
+                "acontece por acaso: é digitação do mesmo valor nos dois campos")
+    if not (-74.0 <= lon <= -34.0) or not (-34.0 <= lat <= 6.0):
+        return ("a coordenada cai fora dos limites do território continental "
+                "brasileiro")
+    return None
+
+
+def _evidencia_cobertura(cob, p, reg) -> list[dict]:
+    """
+    O que a base de referência via naquele ponto no ano anterior — itens 1.10 e 4.6.
+
+    DUAS COISAS, NESTA ORDEM, E A PRIMEIRA MANDA NA SEGUNDA.
+
+    Primeiro: a coordenada declarada no auto cai dentro do município que o
+    próprio auto declara? Se não cai, nada do que houver naquele pixel diz
+    respeito a este fato, e a leitura de vegetação NÃO é apresentada. Sai só a
+    evidência do item 1.10, com a distância medida. Verificação que não
+    aconteceu não pode parecer que aconteceu.
+
+    Depois, e só então: qual era a cobertura e o estágio da vegetação no ano
+    anterior ao fato.
+
+    O SINAL SE INVERTE CONFORME A CONDUTA — E ISSO QUASE PASSOU.
+    Em "impedir a regeneração natural da vegetação nativa em área embargada",
+    encontrar pastagem CORROBORA o auto. Em "destruir 1.150 hectares de floresta
+    nativa", encontrar pastagem CONTRARIA. É o mesmo pixel e a mesma classe,
+    com leituras opostas. Por isso a conduta é classificada pelo verbo antes de
+    qualquer comparação, e um auto de conduta indefinida recebe só a descrição,
+    sem juízo de convergência.
+    """
+    if cob is None:
+        return []
+    ev: list[dict] = []
+    sit = (getattr(cob, "mun_situacao", None) or "").upper()
+    km = getattr(cob, "mun_km", None)
+
+    # ── 1.10 — a geometria do auto x o município que o auto declara ──────────
+    if sit == "FORA" and km is not None:
+        ev.append(_ev(
+            "1.10", "Geometria do auto fora do município que o próprio auto declara",
+            [("DS_WKT (ponto declarado no auto)", f"{p.lat}, {p.lon}"),
+             ("MUNICÍPIO / UF declarados no auto", f"{p.municipio or '—'}/{p.uf or '—'}"),
+             ("DISTÂNCIA ATÉ O MUNICÍPIO DECLARADO", _km(km)),
+             ("DEFEITO NA PRÓPRIA COORDENADA", _coordenada_degenerada(p)),
+             ("MALHA DE REFERÊNCIA",
+              "IBGE — API de Malhas v3, malha municipal, qualidade intermediária")],
+            "A coordenada que o auto informa não cai dentro do município que o auto "
+            f"declara: está a {_km(km)} da divisa mais próxima dele. "
+            + (f"Note que {_coordenada_degenerada(p)}. " if _coordenada_degenerada(p) else "")
+            + ("Distância desta ordem não se explica por imprecisão de traçado — "
+               "confira no processo qual é o local do fato e de onde saiu esta "
+               "coordenada, porque uma das duas informações do próprio auto está "
+               "errada. " if km >= 5 else
+               "Nesta ordem de grandeza pode ser apenas divisa, mas fica registrado. ")
+            + "Enquanto isso, nenhuma leitura de vegetação é apresentada para este "
+              "auto: ler satélite num ponto que não é o do fato seria inventar "
+              "verificação." + _RESSALVA_MALHA))
+        return ev
+
+    if sit == "NAO_LOCALIZADO":
+        return ev
+
+    # ── 4.6 — cobertura e estágio da vegetação no ano anterior ao fato ───────
+    if not getattr(cob, "cob_centro", None) or not getattr(cob, "ano_ref", None):
+        return ev
+
+    ano = cob.ano_ref
+    homc = getattr(cob, "cob_homog", None)
+    homv = getattr(cob, "veg_homog", None)
+    cond = (getattr(cob, "conduta", None) or "outra")
+    vcod = getattr(cob, "veg_centro", None)
+    antropico = cob.cob_centro in _MB_ANTROPICO
+
+    if cond == "supressao" and vcod == 3:
+        leitura = (
+            f"O auto descreve supressão de vegetação. Em {ano}, ano anterior ao fato, a "
+            "base de referência classificava este ponto como VEGETAÇÃO SECUNDÁRIA — "
+            "não primária. A distinção não é de detalhe: o enquadramento em vegetação "
+            "\"objeto de especial preservação\" e o regime de estágio sucessional "
+            "mudam a tipificação e a dosimetria. Confira no processo se o laudo "
+            "caracteriza o estágio, e com que método.")
+    elif cond == "supressao" and vcod == 4:
+        leitura = (
+            f"O auto descreve supressão de vegetação, e a base de referência já "
+            f"registra SUPRESSÃO DE VEGETAÇÃO PRIMÁRIA neste ponto em {ano} — ou seja, "
+            "no ano ANTERIOR ao fato descrito. Isto tanto pode corroborar o auto quanto "
+            "indicar que a supressão começou antes da data imputada, o que importa "
+            "para prescrição e para a autoria. Confira a data do fato no processo.")
+    elif cond == "supressao" and antropico:
+        leitura = (
+            f"O auto descreve supressão de vegetação, mas em {ano}, ano anterior ao "
+            f"fato, a base de referência já classificava este ponto como "
+            f"{cob.cob_classe} — uso antrópico, não vegetação. Ou a coordenada não é a "
+            "da área suprimida, ou a área já estava convertida antes do fato imputado. "
+            "As duas hipóteses são matéria de defesa e as duas se resolvem no processo, "
+            "com o polígono e o laudo.")
+    elif cond == "supressao" and vcod == 2:
+        leitura = (
+            f"O auto descreve supressão de vegetação, e em {ano}, ano anterior ao fato, "
+            f"a base de referência classificava este ponto como {cob.cob_classe}, "
+            "estágio VEGETAÇÃO PRIMÁRIA. Isto CONVERGE com o que o auto afirma — "
+            "registre-se como convergência, não como achado de defesa. O que ainda "
+            "cabe conferir no processo é o método pelo qual o laudo chegou ao estágio, "
+            "porque a convergência aqui é de ponto, não de polígono.")
+    elif cond == "regeneracao" and antropico:
+        leitura = (
+            f"O auto descreve conduta de impedir regeneração ou uso em área embargada, e "
+            f"em {ano} a base de referência classificava o ponto como {cob.cob_classe}. "
+            "Isto CONVERGE com o que o auto afirma — registre-se como convergência, não "
+            "como achado de defesa.")
+    else:
+        leitura = (
+            f"Em {ano}, ano anterior ao fato, a base de referência classificava este "
+            f"ponto como {cob.cob_classe}"
+            + (f" e, quanto ao estágio, como {cob.veg_classe}." if cob.veg_classe else ".")
+            + " Sirva-se disto para conferir o que o laudo do processo afirma sobre "
+              "tipologia e estágio da vegetação.")
+
+    # O centro e a janela podem discordar, e quando discordam isso muda o peso
+    # da leitura. Dizer só a classe do centro e calar que 14 dos 25 pixels em
+    # volta são outra coisa seria apresentar como firme o que é de borda.
+    if (getattr(cob, "veg_moda", None) and vcod
+            and cob.veg_moda != vcod):
+        leitura += (f" Atenção: no pixel do ponto a classe é {cob.veg_classe}, mas na "
+                    f"janela de 150 m × 150 m predomina {cob.veg_moda_classe} "
+                    f"({homv} de 25). O ponto está em borda de transição, e uma leitura "
+                    "de borda não sustenta conclusão sozinha.")
+
+    ev.append(_ev(
+        "4.6", "Cobertura e estágio da vegetação no ano anterior ao fato",
+        [("ANO LIDO", f"{ano} (ano anterior ao fato)"),
+         ("COBERTURA NO PONTO", cob.cob_classe),
+         ("COBERTURA DOMINANTE EM 150 m × 150 m",
+          f"{cob.cob_moda_classe} ({homc} de 25 pixels)" if cob.cob_moda_classe else None),
+         ("ESTÁGIO NO PONTO (primária × secundária)", cob.veg_classe),
+         ("ESTÁGIO DOMINANTE EM 150 m × 150 m",
+          f"{cob.veg_moda_classe} ({homv} de 25 pixels)" if cob.veg_moda_classe else None),
+         ("CONDUTA DESCRITA NO AUTO",
+          {"supressao": "supressão de vegetação",
+           "regeneracao": "impedir regeneração / uso em área embargada"}.get(cond)),
+         ("PONTO LIDO (DS_WKT do auto)", f"{p.lat}, {p.lon}"),
+         ("FONTE", "MapBiomas Brasil — Coleção 11, 30 m (cobertura; e desmatamento e "
+                   "vegetação secundária). Licença CC BY-SA 4.0.")],
+        leitura + _RESSALVA_MB))
+    return ev
+
+
 def _evidencia_icmbio(autos: list, p) -> list[dict]:
     """
     Autos de infração do ICMBio do mesmo CNPJ — itens 2.2 e 5.3.
@@ -1160,7 +1349,7 @@ def pre_verificar(p, irmaos_janela: list, irmaos_todos: list,
                   termos: Optional[list] = None,
                   uc=None, autorizacoes: Optional[list] = None,
                   julgamento=None, icmbio: Optional[list] = None,
-                  deter: Optional[list] = None) -> dict:
+                  deter: Optional[list] = None, cobertura=None) -> dict:
     """
     p              — o Prospecto em análise
     irmaos_janela  — autos do mesmo documento e município em até 30 dias
@@ -1174,6 +1363,7 @@ def pre_verificar(p, irmaos_janela: list, irmaos_todos: list,
     julgamento     — desfecho do auto no SICAFI, quando já julgado
     icmbio         — autos do ICMBio do MESMO CNPJ (não do mesmo auto, e só PJ)
     deter          — alertas do INPE compatíveis em espaço E tempo com o fato
+    cobertura      — leitura do MapBiomas no ponto do auto, no ano anterior ao fato
     """
     reg = getattr(p, "registro", None) or {}
     apurados = _apurar(p, reg, irmaos_janela)
@@ -1184,7 +1374,8 @@ def pre_verificar(p, irmaos_janela: list, irmaos_todos: list,
                   + _evidencia_uc(uc)
                   + _evidencia_autorizacao(autorizacoes or [], p)
                   + _evidencia_icmbio(icmbio or [], p)
-                  + _evidencia_deter(deter or [], p))
+                  + _evidencia_deter(deter or [], p)
+                  + _evidencia_cobertura(cobertura, p, reg))
     # O DESFECHO NÃO É EVIDÊNCIA DO PROTOCOLO — VAI SEPARADO, DE PROPÓSITO.
     #
     # O julgamento não responde item nenhum: ele diz se ainda existe caso. Auto

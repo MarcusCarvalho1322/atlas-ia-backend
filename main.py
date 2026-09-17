@@ -29,7 +29,8 @@ from sqlalchemy.orm import Session
 
 from db import Base, engine, get_db, SessionLocal, descrever_banco, garantir_colunas
 from models import (Caso, Prospecto, DividaAtiva, Notificacao, Termo, Acesso,
-                    Julgamento, AutoEmUC, Autorizacao, AutoIcmbio, AlertaDeter)
+                    Julgamento, AutoEmUC, Autorizacao, AutoIcmbio, AlertaDeter,
+                    CoberturaMapbiomas)
 import geo_service
 import ai_service
 import catalogo
@@ -423,6 +424,10 @@ def pre_verificacao_do_caso(num_auto: str, authorization: Optional[str] = Header
     # para por que o recorte é 500 m e 180 dias, e não proximidade pura.
     deter = (db.query(AlertaDeter).filter(AlertaDeter.num_auto == p.num_auto)
                .order_by(AlertaDeter.metros).limit(5).all())
+    # Leitura do MapBiomas no ponto deste auto. Ver models.CoberturaMapbiomas:
+    # onde a geometria nao cai no municipio declarado, a propria evidencia
+    # recusa a leitura de vegetacao e mostra so a distancia.
+    cobertura = db.get(CoberturaMapbiomas, p.num_auto)
 
     autorizacoes = []
     if p.cnpj:
@@ -437,7 +442,8 @@ def pre_verificacao_do_caso(num_auto: str, authorization: Optional[str] = Header
                                         divida=divida, escopo_divida=escopo,
                                         notificacoes=notifs, termos=termos,
                                         uc=uc, autorizacoes=autorizacoes,
-                                        julgamento=julgamento, icmbio=icmbio, deter=deter)
+                                        julgamento=julgamento, icmbio=icmbio, deter=deter,
+                                        cobertura=cobertura)
 
 
 class CargaNotificacoes(BaseModel):
@@ -585,6 +591,12 @@ _RECORTES = {
                       "tem_embargo", "tem_apreensao")),
     # A chave é num_auto#ordem: um auto pode ter mais de um alerta no recorte,
     # e todos interessam — o mais próximo não é necessariamente o do fato.
+    # Um auto, uma leitura. A chave e o proprio numero do auto porque a
+    # leitura e do ponto do auto no ano anterior ao fato dele.
+    "mapbiomas": (CoberturaMapbiomas, "num_auto",
+                  ("ano_ref", "cob_centro", "cob_classe", "cob_moda", "cob_moda_classe",
+                   "cob_homog", "veg_centro", "veg_classe", "veg_moda", "veg_moda_classe",
+                   "veg_homog", "mun_situacao", "mun_km", "conduta")),
     "deter": (AlertaDeter, "id",
               ("num_auto", "camada", "view_date", "dias_antes", "metros", "classname",
                "sensor", "satellite", "path_row", "municipality", "uf")),
@@ -970,6 +982,7 @@ def backup(authorization: Optional[str] = Header(None), db: Session = Depends(ge
             "autorizacoes": db.query(Autorizacao).count(),
             "autos_icmbio": db.query(AutoIcmbio).count(),
             "alertas_deter": db.query(AlertaDeter).count(),
+            "cobertura_mapbiomas": db.query(CoberturaMapbiomas).count(),
         },
         "como_restaurar": (
             "1) POST /api/prospeccao/atualizar para reminerar a carteira do arquivo do IBAMA. "

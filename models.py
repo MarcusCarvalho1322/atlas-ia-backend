@@ -644,3 +644,92 @@ class AlertaDeter(Base):
     municipality = Column(String, nullable=True)
     uf = Column(String, nullable=True)
     carregado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class CoberturaMapbiomas(Base):
+    """
+    O que a base de referência via naquele ponto no ano ANTERIOR ao fato — item 4.6.
+
+    O ITEM
+    ------
+    4.6 pergunta se a classificação da vegetação está correta: primária ou
+    secundária, e qual tipologia. É o item que decide enquadramento e
+    dosimetria — "objeto de especial preservação" (art. 50 do Decreto 6.514) e
+    o regime da Lei 11.428 para a Mata Atlântica dependem do estágio. Até aqui
+    o sistema não tinha o que mostrar: o cadastro do auto não traz campo de
+    tipologia nem de estágio.
+
+    AS DUAS CAMADAS, COM LEGENDA CONFERIDA NA FONTE
+    -----------------------------------------------
+    MapBiomas Brasil, Coleção 11, 30 m, dois produtos distintos:
+
+      cobertura .... brazil_coverage-col11_{ano}.tif
+                     Legenda oficial em CSV (legend_code_..._collection_11.csv),
+                     33 classes. 3 = Formação Florestal, 15 = Pastagem,
+                     24 = Área Urbanizada, 30 = Mineração, 39 = Soja...
+
+      primária x    deforestation_secondary_vegetation-brazil_classification_{ano}.tif
+      secundária    1 Antrópico · 2 Vegetação Primária · 3 Vegetação Secundária
+                    4 Supressão de Veg. Primária · 5 Recuperação para veg.
+                    secundária · 6 Supressão de Veg. Secundária
+                    7 Outras transições · 0 = sem dado
+
+    A segunda legenda NÃO tem arquivo publicado na página de Códigos de
+    Legenda, e o Apêndice do ATBD nomeia as sete classes mas não dá os códigos
+    numéricos. Os códigos acima foram lidos no texto da própria página do
+    produto do MapBiomas em 17/09/2026, e depois conferidos contra a cobertura
+    ponto a ponto: onde a cobertura diz Mineração a camada diz Antrópico, onde
+    diz Formação Florestal diz Vegetação Primária. Duas fontes independentes
+    concordando é o que autorizou usar a camada. Sem isso ela ficaria de fora,
+    como ficaram o INCRA e o item 2.5.
+
+    POR QUE UMA JANELA DE 5 x 5 E NÃO UM PIXEL
+    ------------------------------------------
+    O auto informa um PONTO (DS_WKT), não o polígono da área. Ler um pixel de
+    30 m e apresentá-lo como "a vegetação da área" seria trocar uma coisa pela
+    outra. Grava-se a classe do pixel central E a moda dos 25 pixels de 150 m x
+    150 m em volta, com quantos dos 25 são da mesma classe. Ponto no meio de
+    uma mancha homogênea (25/25) e ponto na borda (13/25) não valem o mesmo, e
+    quem lê precisa ver a diferença.
+
+    A GEOMETRIA DO AUTO É COMPATÍVEL COM O MUNICÍPIO QUE O AUTO DECLARA?
+    -------------------------------------------------------------------
+    Esta pergunta nasceu de um número que parecia errado: 44% dos pontos da
+    carteira caem em "Área Urbanizada". Investigado, não era defeito da
+    leitura — são autos de Fauna, Pesca, Cadastro Técnico e Administração
+    Ambiental, que acontecem em cidade mesmo. Mas a investigação achou outra
+    coisa: 1.022 autos (9,5%) têm geometria FORA do município que o próprio
+    auto declara, e 122 deles a mais de 1.000 km — inclusive 47 autos de Novo
+    Progresso/PA cuja coordenada cai na sede do IBAMA em Brasília.
+
+    Isso é evidência do item 1.10 por si só. E é GATE: onde a geometria não
+    cai no município declarado, a leitura de vegetação não é apresentada.
+    Verificação que não aconteceu não pode parecer que aconteceu.
+
+    Malha municipal: IBGE, API de Malhas v3, qualidade intermediária, 5.570
+    polígonos, baixada em 17/09/2026. Nas bordas o traçado tem imprecisão de
+    centenas de metros — por isso grava-se a distância em km, e não um "sim ou
+    não".
+    """
+    __tablename__ = "cobertura_mapbiomas"
+
+    num_auto = Column(String, primary_key=True)
+    ano_ref = Column(Integer, nullable=True)          # ano do fato menos 1
+
+    cob_centro = Column(Integer, nullable=True)       # código da classe no pixel
+    cob_classe = Column(String, nullable=True)        # nome da classe (legenda oficial)
+    cob_moda = Column(Integer, nullable=True)         # classe mais frequente na janela
+    cob_moda_classe = Column(String, nullable=True)
+    cob_homog = Column(Integer, nullable=True)        # pixels da moda, de 25
+
+    veg_centro = Column(Integer, nullable=True)       # 1..7 (primária x secundária)
+    veg_classe = Column(String, nullable=True)
+    veg_moda = Column(Integer, nullable=True)
+    veg_moda_classe = Column(String, nullable=True)
+    veg_homog = Column(Integer, nullable=True)
+
+    mun_situacao = Column(String, nullable=True)      # DENTRO | FORA | NAO_LOCALIZADO
+    mun_km = Column(Float, nullable=True)             # da borda do município ao ponto
+    conduta = Column(String, nullable=True)           # supressao | regeneracao | outra
+
+    carregado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))

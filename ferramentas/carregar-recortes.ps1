@@ -4,6 +4,11 @@
 #   2. julgamentos - situacao do debito do auto (quitado, em cobranca...)
 #   3. uc          - autos cuja coordenada cai dentro de UC federal (ICMBio)
 #   4. autorizacoes- Sinaflor: autorizacao de supressao de vegetacao por CNPJ
+#   5. autos_icmbio- autos do ICMBio do mesmo CNPJ (so PJ)
+#   6. deter       - alerta do INPE compativel em espaco E tempo com o fato
+#   7. mapbiomas   - cobertura e estagio da vegetacao no ano anterior ao fato,
+#                    mais a conferencia da geometria do auto contra a malha
+#                    municipal do IBGE (itens 4.6 e 1.10)
 #
 # Os arquivos de origem ficam em dados_ibama_termos\ e sao recortes ja
 # filtrados pela carteira. A carga e idempotente: rodar duas vezes nao
@@ -45,7 +50,8 @@ $arquivos = @(
   @{ nome="uc";           arq="uc.json";           chave="autos_em_uc";   url="$base/api/recorte/uc/carregar";          campo="linhas" },
   @{ nome="autorizacoes"; arq="sinaflor.json";     chave="autorizacoes";  url="$base/api/recorte/autorizacoes/carregar";campo="linhas" },
   @{ nome="autos_icmbio"; arq="autos_icmbio.json"; chave="autos_icmbio";  url="$base/api/recorte/autos_icmbio/carregar";campo="linhas" },
-  @{ nome="deter";        arq="deter.json";        chave="alertas_deter"; url="$base/api/recorte/deter/carregar";       campo="linhas" }
+  @{ nome="deter";        arq="deter.json";        chave="alertas_deter"; url="$base/api/recorte/deter/carregar";       campo="linhas" },
+  @{ nome="mapbiomas";    arq="mapbiomas.json";    chave="cobertura_mapbiomas"; url="$base/api/recorte/mapbiomas/carregar"; campo="linhas" }
 )
 
 $falta = $arquivos | Where-Object { -not (Test-Path (Join-Path $dir $_.arq)) }
@@ -74,4 +80,5 @@ Write-Host ""
 Write-Host "Diferencas esperadas entre enviado e total na base:" -ForegroundColor DarkGray
 Write-Host "  termos       -19  o arquivo publico repete o mesmo termo" -ForegroundColor DarkGray
 Write-Host "  autorizacoes -41  linhas identicas do mesmo imovel colapsam" -ForegroundColor DarkGray
+Write-Host "  mapbiomas      0  uma linha por auto com geometria: 10.711" -ForegroundColor DarkGray
 Write-Host "Nos dois casos nao ha perda: o que se repete e a mesma linha." -ForegroundColor DarkGray

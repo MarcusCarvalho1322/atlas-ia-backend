@@ -60,6 +60,11 @@ dist/
 # ───────────────────────── TEMPORÁRIOS ─────────────────────────
 _lixeira/
 _*.ps1
+# Suites de conferencia e regressao. Rodam contra bancos e recortes locais de
+# centenas de MB que nao existem num clone limpo, entao nao sao codigo de
+# producao — mas sao a rede de seguranca do projeto e nao podem viver so no
+# ambiente efemero do assistente. Copia local, fora do repositorio.
+_testes/
 .DS_Store
 Thumbs.db
 backups/
