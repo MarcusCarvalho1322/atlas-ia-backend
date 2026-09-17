@@ -462,6 +462,122 @@ def _evidencia_termo(termos: list, reg: dict) -> list[dict]:
     return ev
 
 
+def _evidencia_uc(uc) -> list[dict]:
+    """
+    Auto cuja coordenada cai dentro de Unidade de Conservação federal.
+
+    Primeira fonte do sistema que casa por POSIÇÃO, não por número nem por
+    documento: a coordenada do auto testada contra os 347 polígonos do ICMBio.
+
+    O limite vai escrito em toda evidência, porque ele é real: o ponto testado
+    é a coordenada que o IBAMA registrou, não o perímetro da área autuada.
+    Ponto dentro não prova que toda a área está dentro; ponto fora não prova
+    que nada está. E a camada não traz zona de amortecimento — ausência aqui
+    não é ausência de UC por perto.
+    """
+    if not uc:
+        return []
+    grupo = (getattr(uc, "grupo", "") or "").strip()
+    integral = grupo.lower().startswith("prote")
+    linhas = [("UNIDADE DE CONSERVAÇÃO", getattr(uc, "nome_uc", None)),
+              ("GRUPO", grupo or None),
+              ("CNUC", getattr(uc, "cnuc", None)),
+              ("ESFERA", getattr(uc, "esfera", None)),
+              ("BIOMA", getattr(uc, "bioma", None)),
+              ("ATO DE CRIAÇÃO", getattr(uc, "ato_criacao", None)),
+              ("FONTE", "ICMBio — limites oficiais, camada de ago/2026")]
+
+    base = ("A coordenada registrada no auto cai DENTRO dos limites oficiais desta "
+            "unidade de conservação federal. ")
+    if integral:
+        leitura = base + (
+            "É unidade de PROTEÇÃO INTEGRAL — Parque Nacional, Reserva Biológica ou "
+            "Estação Ecológica não admitem as mesmas atividades que uma área de uso "
+            "sustentável. Isso alcança tipificação e competência, e muda a conversa "
+            "sobre o caso. Na carteira medida, só 26 autos estão nesta situação.")
+    else:
+        leitura = base + (
+            "É unidade de USO SUSTENTÁVEL — a categoria admite atividades, dentro do "
+            "que o plano de manejo e o ato de criação permitem. O que vale é o regime "
+            "desta unidade, que é peça a consultar, não um dado de cadastro.")
+    leitura += (" LIMITE DO CRUZAMENTO: o que foi testado é o PONTO do auto, não o "
+                "perímetro da área autuada — ponto dentro não prova que toda a área "
+                "está dentro. Zona de amortecimento não consta desta camada.")
+    return [_ev("2.3", "Localização dentro de unidade de conservação federal", linhas, leitura)]
+
+
+def _evidencia_autorizacao(autorizacoes: list, p) -> list[dict]:
+    """
+    Autorizações de supressão do CNPJ autuado — item 2.1.
+
+    O item 2.1 é determinante, peso 10, e chegava em branco. Esta é a primeira
+    fonte que o alcança.
+
+    A RESSALVA É A PRÓPRIA RAZÃO DE SER DESTA EVIDÊNCIA. O vínculo aqui é o
+    CNPJ do detentor, não o número do auto. Autorização do mesmo CNPJ NÃO é
+    necessariamente a autorização deste fato — pode ser de outro imóvel, outro
+    município, outro período. Por isso o que se exibe é a autorização com a
+    janela de validade e o município AO LADO da data e do município do auto,
+    para a pessoa comparar. O sistema não conclui nada.
+    """
+    if not autorizacoes:
+        return []
+    dt_fato = _d(getattr(p, "dt_fato", None)) or _d(getattr(p, "dt_auto", None))
+    mun_auto = (getattr(p, "municipio", "") or "").strip()
+
+    vigentes, vencidas, outras = [], [], []
+    for a in autorizacoes:
+        emi, val = _d(getattr(a, "data_emissao", None)), _d(getattr(a, "data_validade", None))
+        if dt_fato and emi and val and emi <= dt_fato <= val:
+            vigentes.append((a, emi, val))
+        elif dt_fato and val and val < dt_fato:
+            vencidas.append((a, emi, val))
+        else:
+            outras.append((a, emi, val))
+
+    ev: list[dict] = []
+    RESSALVA = (" ATENÇÃO À PROCEDÊNCIA: esta autorização é do CNPJ do autuado, não "
+                "necessariamente DESTE fato. O vínculo é o documento, não o número do "
+                "auto — pode ser de outro imóvel, outro município ou outro período. "
+                "Compare o município e a data antes de usar.")
+
+    def bloco(titulo, lista, leitura):
+        for a, emi, val in lista[:3]:
+            mun_aut = (getattr(a, "municipio", "") or "").strip()
+            mesmo_mun = mun_auto and mun_aut and mun_auto.upper() == mun_aut.upper()
+            linhas = [("NRO_AUTORIZACAO", getattr(a, "nro_autorizacao", None)),
+                      ("SITUACAO", getattr(a, "situacao", None)),
+                      ("VALIDADE", f"{emi.isoformat() if emi else '?'} a {val.isoformat() if val else '?'}"),
+                      ("DATA DO FATO (auto)", dt_fato.isoformat() if dt_fato else "— sem data"),
+                      ("MUNICÍPIO da autorização", mun_aut or None),
+                      ("MUNICÍPIO do auto", mun_auto or None),
+                      ("MESMO MUNICÍPIO?", "sim" if mesmo_mun else "NÃO — confira se é o mesmo imóvel"),
+                      ("FINALIDADE", getattr(a, "finalidade", None)),
+                      ("AREA_TOTAL_PROJ", getattr(a, "area_total", None)),
+                      ("IMÓVEL / CAR", " · ".join(x for x in [(getattr(a, "imovel", "") or ""),
+                                                              (getattr(a, "car", "") or "")] if x) or None)]
+            ev.append(_ev("2.1", titulo, linhas, leitura + RESSALVA))
+
+    bloco("Autorização de supressão VIGENTE na data do fato", vigentes,
+          "O Sinaflor registra autorização de supressão do CNPJ autuado com validade "
+          "ABERTA na data do fato. Se for do mesmo imóvel, é matéria central da defesa: "
+          "a conduta pode estar amparada por ato do próprio órgão.")
+    bloco("Autorização de supressão VENCIDA antes do fato", vencidas,
+          "O CNPJ autuado TINHA autorização, e ela venceu antes da data do fato. Isso é "
+          "situação diferente de nunca ter tido: alcança a discussão sobre boa-fé e "
+          "sobre a dosimetria. Na carteira medida, 239 das 604 autorizações estão "
+          "vencidas.")
+    bloco("Autorização de supressão do mesmo CNPJ (janela não comparável)", outras,
+          "O Sinaflor registra autorização do CNPJ autuado, mas as datas não permitem "
+          "dizer se estava vigente na data do fato — falta a data de um dos lados.")
+
+    if len(autorizacoes) > 3:
+        ev.append(_ev("2.1", f"Mais {len(autorizacoes) - 3} autorização(ões) do mesmo CNPJ",
+                      [], "O CNPJ acumula outras autorizações no Sinaflor. Vale varrer a "
+                          "lista completa antes de afirmar ausência de amparo." + RESSALVA))
+    return ev
+
+
 def _evidenciar(p, reg: dict, irmaos_todos: list) -> list[dict]:
     ev: list[dict] = []
     g = lambda n: _campo(reg, n)
@@ -625,7 +741,9 @@ def _evidenciar(p, reg: dict, irmaos_todos: list) -> list[dict]:
 def pre_verificar(p, irmaos_janela: list, irmaos_todos: list,
                   divida=None, escopo_divida: Optional[str] = None,
                   notificacoes: Optional[list] = None,
-                  termos: Optional[list] = None) -> dict:
+                  termos: Optional[list] = None,
+                  uc=None, autorizacoes: Optional[list] = None,
+                  julgamento=None) -> dict:
     """
     p              — o Prospecto em análise
     irmaos_janela  — autos do mesmo documento e município em até 30 dias
@@ -634,17 +752,54 @@ def pre_verificar(p, irmaos_janela: list, irmaos_todos: list,
     escopo_divida  — "estabelecimento" (CNPJ inteiro) ou "grupo" (raiz)
     notificacoes   — notificações do MESMO processo administrativo
     termos         — embargo/apreensão/suspensão do MESMO número de auto
+    uc             — linha de AutoEmUC, quando a coordenada cai dentro de UC federal
+    autorizacoes   — autorizações do Sinaflor do MESMO CNPJ (não do mesmo auto)
+    julgamento     — desfecho do auto no SICAFI, quando já julgado
     """
     reg = getattr(p, "registro", None) or {}
     apurados = _apurar(p, reg, irmaos_janela)
     evidencias = (_evidenciar(p, reg, irmaos_todos)
                   + _evidencia_divida(divida, escopo_divida)
                   + _evidencia_notificacao(notificacoes or [], p.dt_auto)
-                  + _evidencia_termo(termos or [], reg))
+                  + _evidencia_termo(termos or [], reg)
+                  + _evidencia_uc(uc)
+                  + _evidencia_autorizacao(autorizacoes or [], p))
+    # O DESFECHO NÃO É EVIDÊNCIA DO PROTOCOLO — VAI SEPARADO, DE PROPÓSITO.
+    #
+    # O julgamento não responde item nenhum: ele diz se ainda existe caso. Auto
+    # já quitado não tem defesa a fazer, e oferecer uma é constrangimento na
+    # frente do prospecto. Por isso sai como `situacao_do_auto`, num campo
+    # próprio que a tela pode exibir como aviso antes de qualquer análise, em
+    # vez de virar mais uma linha no meio das evidências.
+    situacao = None
+    if julgamento is not None:
+        st = (getattr(julgamento, "status_debito", "") or "").strip()
+        quitado = "quitado" in st.lower() or "homologado" in st.lower()
+        situacao = {
+            "status_debito": st or None,
+            "decisao": getattr(julgamento, "decisao", None),
+            "data_julgamento": (getattr(julgamento, "dat_julg_principal", None)
+                                or getattr(julgamento, "dat_julg_recurso", None)),
+            "valor_do_auto": getattr(julgamento, "valor_auto", None),
+            "valor_pago": getattr(julgamento, "valor_pago", None),
+            "moeda": getattr(julgamento, "moeda", None),
+            "encerrado": quitado,
+            "aviso": (
+                "ATENÇÃO: o registro do IBAMA indica que este débito JÁ FOI QUITADO. "
+                "Não há defesa a oferecer, e abordar o autuado sobre esta multa seria "
+                "erro de carteira. Confira antes de qualquer contato."
+                if quitado else
+                "O auto consta como julgado no registro do IBAMA. Confira o andamento "
+                "antes de dimensionar prazo — o cadastro não substitui o processo."
+            ),
+            "fonte": "IBAMA — Julgamentos de Auto de Infração (SICAFI)",
+        }
+
     return {
         "num_auto": p.num_auto,
         "apurados": apurados,
         "evidencias": evidencias,
+        "situacao_do_auto": situacao,
         "cobertura": {
             "itens_apurados": len(apurados),
             "itens_com_evidencia": len({e["item"] for e in evidencias}),

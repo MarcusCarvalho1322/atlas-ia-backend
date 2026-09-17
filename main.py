@@ -28,7 +28,8 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from db import Base, engine, get_db, SessionLocal, descrever_banco, garantir_colunas
-from models import Caso, Prospecto, DividaAtiva, Notificacao, Termo, Acesso
+from models import (Caso, Prospecto, DividaAtiva, Notificacao, Termo, Acesso,
+                    Julgamento, AutoEmUC, Autorizacao)
 import geo_service
 import ai_service
 import catalogo
@@ -393,9 +394,30 @@ def pre_verificacao_do_caso(num_auto: str, authorization: Optional[str] = Header
                 .filter(Termo.num_auto == p.num_auto)
                 .order_by(Termo.tipo, Termo.data).limit(12).all())
 
+    # Unidade de conservação: o cruzamento de geometria é feito fora e só o
+    # par auto → UC entra no banco. O Postgres de produção não tem extensão
+    # geoespacial, e refazer a conta contra 44 MB de polígonos a cada consulta
+    # seria desperdício de um resultado que não muda.
+    uc = db.query(AutoEmUC).filter(AutoEmUC.num_auto == p.num_auto).first()
+
+    # Autorizações do Sinaflor. AQUI O VÍNCULO É O CNPJ, NÃO O AUTO — e por
+    # isso só pessoa jurídica: o CPF vem mascarado dos dois lados e casaria
+    # errado. A ressalva de procedência vai escrita em cada evidência.
+    autorizacoes = []
+    if p.cnpj:
+        autorizacoes = (db.query(Autorizacao)
+                          .filter(Autorizacao.cnpj == p.cnpj)
+                          .order_by(Autorizacao.data_validade.desc()).limit(10).all())
+
+    # Desfecho do auto. Não é evidência do protocolo: é o aviso de que pode
+    # não haver mais caso.
+    julgamento = db.query(Julgamento).filter(Julgamento.num_auto == p.num_auto).first()
+
     return preverificacao.pre_verificar(p, janela, familia,
                                         divida=divida, escopo_divida=escopo,
-                                        notificacoes=notifs, termos=termos)
+                                        notificacoes=notifs, termos=termos,
+                                        uc=uc, autorizacoes=autorizacoes,
+                                        julgamento=julgamento)
 
 
 class CargaNotificacoes(BaseModel):
@@ -510,6 +532,75 @@ def carregar_termos(req: CargaTermos,
     return {"linhas_recebidas": gravados,
             "termos_distintos": len(tocados),
             "total_na_base": db.query(Termo).count()}
+
+
+class CargaRecorte(BaseModel):
+    linhas: list[dict]
+
+
+# As três fontes de 17/09 têm a mesma forma: um recorte filtrado fora, uma
+# chave natural, e carga idempotente. Uma rota só, com a tabela escolhida por
+# nome, evita repetir três vezes o mesmo corpo — e mantém num lugar só a
+# cautela da chave repetida que já mordeu na notificação e nos termos.
+_RECORTES = {
+    "julgamentos": (Julgamento, "num_auto",
+                    ("status_debito", "decisao", "dat_julg_principal", "dat_julg_recurso",
+                     "valor_auto", "moeda", "valor_pago", "dat_pagamento")),
+    "uc": (AutoEmUC, "num_auto",
+           ("nome_uc", "cnuc", "grupo", "esfera", "bioma", "ano_criacao", "ato_criacao")),
+    # A chave aqui é o `id` determinístico, não o número da autorização: o
+    # arquivo do Sinaflor publica uma linha por IMÓVEL, e uma autorização pode
+    # cobrir vários. Ver a nota em models.Autorizacao.
+    "autorizacoes": (Autorizacao, "id",
+                     ("nro_autorizacao", "cnpj", "data_emissao", "data_validade", "situacao",
+                      "uf", "municipio", "atividade", "finalidade", "area_total", "imovel",
+                      "car", "orgao_analise", "bioma")),
+}
+
+
+@app.post("/api/recorte/{nome}/carregar")
+def carregar_recorte(nome: str, req: CargaRecorte,
+                     authorization: Optional[str] = Header(None),
+                     db: Session = Depends(get_db)):
+    """
+    Carrega um dos recortes de 17/09: julgamentos, uc ou autorizacoes.
+
+    Mesma disciplina das cargas anteriores. A filtragem acontece FORA — os
+    arquivos de origem somam centenas de megabytes e o cruzamento de geometria
+    das UCs precisa de 44 MB de polígonos que não têm por que viver aqui.
+
+    `tocados` guarda o que já foi criado nesta mesma remessa: a sessão não faz
+    flush automático, então uma consulta não enxergaria a linha recém-criada e
+    o banco recusaria a chave repetida. Já aconteceu com a notificação (um
+    número) e com os termos (seis) — e a autorização do Sinaflor tem 604
+    linhas para 54 CNPJs, ou seja, repetição é a regra e não a exceção.
+    """
+    _checar_auth(authorization)
+    if nome not in _RECORTES:
+        raise HTTPException(404, f"Recorte desconhecido. Use: {', '.join(_RECORTES)}")
+    Modelo, chave, campos = _RECORTES[nome]
+
+    recebidas = 0
+    tocados: dict = {}
+    for linha in req.linhas:
+        k = (linha.get(chave) or "").strip()
+        if not k:
+            continue
+        alvo = tocados.get(k)
+        if alvo is None:
+            alvo = db.query(Modelo).filter(getattr(Modelo, chave) == k).first()
+        if not alvo:
+            alvo = Modelo(**{chave: k})
+            db.add(alvo)
+        tocados[k] = alvo
+        for campo in campos:
+            if campo in linha:
+                setattr(alvo, campo, linha[campo])
+        recebidas += 1
+    db.commit()
+    return {"recorte": nome, "linhas_recebidas": recebidas,
+            "chaves_distintas": len(tocados),
+            "total_na_base": db.query(Modelo).count()}
 
 
 class CargaDividaAtiva(BaseModel):

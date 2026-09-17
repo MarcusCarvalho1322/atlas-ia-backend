@@ -303,6 +303,164 @@ class Termo(Base):
     carregado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
 
+class Julgamento(Base):
+    """
+    Desfecho do auto no SICAFI — a única base que diz se o caso ainda está vivo.
+
+    COBERTURA BAIXA, VALOR DE OUTRA NATUREZA
+    -----------------------------------------
+    O arquivo tem 261.976 julgamentos das 27 UFs, mas só 38 autos da carteira
+    aparecem nele — 0,4%. A razão é estrutural e não vai melhorar: a carteira é
+    de autos de 2026, e auto novo ainda não foi julgado.
+
+    Mesmo assim entra, porque desses 38, TRINTA E UM JÁ ESTÃO QUITADOS. São
+    leads mortos: alguém da equipe ligaria para oferecer defesa de uma multa
+    que o autuado já pagou. Nenhuma outra base revela isso, e o constrangimento
+    acontece na frente do prospecto.
+
+    Então esta tabela não é fonte de evidência para o protocolo. É filtro de
+    carteira: serve para NÃO abordar quem não tem mais o problema.
+
+    UMA COLUNA QUE EXIGE CUIDADO
+    -----------------------------
+    Valor do Auto e Valor Pago usam vírgula como separador de MILHAR e de
+    DECIMAL no mesmo campo: "1,000" é mil, "353,5" é trezentos e cinquenta e
+    três e meio, "3,854,3" é três mil oitocentos e cinquenta e quatro e três.
+    Guardados como texto, exatamente como vieram. Quem for fazer conta com eles
+    decodifica pelo tamanho do último grupo — e antes disso filtra a moeda,
+    porque há valores em Cruzeiro, Cruzado e BTN que não são comparáveis a Real.
+    """
+    __tablename__ = "julgamentos"
+
+    num_auto = Column(String, primary_key=True)
+    status_debito = Column(String, index=True, nullable=True)
+    decisao = Column(String, nullable=True)
+    dat_julg_principal = Column(String, nullable=True)
+    dat_julg_recurso = Column(String, nullable=True)
+    valor_auto = Column(String, nullable=True)      # texto cru: ver nota acima
+    moeda = Column(String, nullable=True)
+    valor_pago = Column(String, nullable=True)      # texto cru: ver nota acima
+    dat_pagamento = Column(String, nullable=True)
+
+    carregado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class AutoEmUC(Base):
+    """
+    Auto cuja coordenada cai dentro de Unidade de Conservação federal.
+
+    GEOMETRIA, NÃO TEXTO
+    ---------------------
+    Esta é a primeira fonte do sistema que não casa por número nem por
+    documento: casa por POSIÇÃO. A coordenada do auto é testada contra os 347
+    polígonos das UCs federais publicados pelo ICMBio (camada
+    `limiteucsfederais_a` do geoserviço da INDE, agosto de 2026).
+
+    O cruzamento é feito FORA e só o resultado entra aqui, por uma razão
+    prática: o Postgres de produção não tem extensão geoespacial, e carregar
+    44 MB de polígonos para refazer a conta a cada consulta seria desperdício.
+    O par auto → UC é estável; refazer só quando o ICMBio republicar a camada.
+
+    O QUE FOI MEDIDO
+    -----------------
+    97,8% da carteira tem coordenada aproveitável. Dentro de UC federal: 194
+    autos (1,8%) — 168 em Uso Sustentável e 26 em PROTEÇÃO INTEGRAL.
+
+    Os 26 são o motivo desta tabela existir. Parque Nacional, Reserva
+    Biológica e Estação Ecológica não admitem as mesmas atividades que uma APA,
+    e isso muda tipificação e competência. Hoje o analista só descobre lendo o
+    processo — se descobrir.
+
+    O LIMITE, QUE VAI ESCRITO NA EVIDÊNCIA
+    ---------------------------------------
+    O ponto testado é a coordenada que o IBAMA registrou no auto, não o
+    perímetro da área autuada. Ponto dentro do polígono não prova que toda a
+    área está dentro, nem ponto fora prova que nada está. E zona de
+    amortecimento NÃO está nesta camada — ausência aqui não é ausência de UC
+    por perto.
+    """
+    __tablename__ = "autos_em_uc"
+
+    num_auto = Column(String, primary_key=True)
+    nome_uc = Column(String, index=True, nullable=True)
+    cnuc = Column(String, nullable=True)
+    grupo = Column(String, index=True, nullable=True)   # Protecao Integral | Uso Sustentavel
+    esfera = Column(String, nullable=True)
+    bioma = Column(String, nullable=True)
+    ano_criacao = Column(String, nullable=True)
+    ato_criacao = Column(String, nullable=True)
+
+    carregado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class Autorizacao(Base):
+    """
+    Autorização de supressão de vegetação do Sinaflor, do CNPJ autuado.
+
+    O ITEM QUE ISTO ALCANÇA É DETERMINANTE E CHEGA VAZIO
+    -----------------------------------------------------
+    O item 2.1 pergunta se havia autorização vigente antes da autuação. É de
+    peso 10 no protocolo e hoje chega ao analista completamente em branco:
+    nenhuma base que o sistema lia respondia a isso.
+
+    O VÍNCULO É PELO CNPJ, E ISSO EXIGE UMA RESSALVA QUE NÃO PODE SUMIR
+    -------------------------------------------------------------------
+    Diferente do termo, que traz o número do auto, aqui o vínculo é o CNPJ do
+    detentor. Uma autorização do mesmo CNPJ NÃO é necessariamente a
+    autorização deste fato: pode ser de outro imóvel, outro município, outro
+    período. Por isso nada aqui vira resposta — vira evidência, com a janela
+    de validade e o município ao lado, para a pessoa comparar.
+
+    Só casa CNPJ de 14 dígitos. A carteira tem 2.110 CNPJs contra 3.308
+    documentos mascarados de pessoa física, e o CPF vem mascarado dos dois
+    lados: pessoa física fica de fora, e é melhor ficar de fora do que casar
+    errado.
+
+    O QUE FOI MEDIDO
+    -----------------
+    604 autorizações, 54 CNPJs, alcançando 208 autos (1,9% da carteira).
+    Situação: 357 emitidas, 239 vencidas, 8 suspensas. A distinção importa —
+    autuado que TINHA autorização e ela venceu é um caso; autuado que nunca
+    teve é outro, e são defesas diferentes.
+
+    POR QUE A CHAVE NÃO É O NÚMERO DA AUTORIZAÇÃO
+    ----------------------------------------------
+    Parecia óbvio que fosse, e o primeiro teste mostrou que não: das 604 linhas
+    só 551 números são distintos. Ao abrir os repetidos, a razão apareceu — o
+    arquivo publica UMA LINHA POR IMÓVEL, e uma autorização pode cobrir vários.
+    A autorização 10539201905317, por exemplo, vem quatro vezes, com dois
+    imóveis diferentes.
+
+    Chavear pelo número sozinho descartaria silenciosamente os demais imóveis
+    de cada autorização — e imóvel é justamente o campo que permite dizer se a
+    autorização tem a ver com ESTE fato. Perder isso esvaziaria a evidência.
+
+    Daí o `id` determinístico: número + assinatura curta do imóvel. Recarregar
+    o mesmo arquivo produz os mesmos ids, então a carga continua idempotente;
+    linhas idênticas (34 dos 46 casos) colapsam, como devem; linhas que diferem
+    no imóvel sobrevivem separadas, como devem.
+    """
+    __tablename__ = "autorizacoes"
+
+    id = Column(String, primary_key=True)               # nro#assinatura-do-imovel
+    nro_autorizacao = Column(String, index=True, nullable=False)
+    cnpj = Column(String, index=True, nullable=False)
+    data_emissao = Column(String, nullable=True)
+    data_validade = Column(String, nullable=True)
+    situacao = Column(String, index=True, nullable=True)
+    uf = Column(String, nullable=True)
+    municipio = Column(String, nullable=True)
+    atividade = Column(String, nullable=True)
+    finalidade = Column(String, nullable=True)
+    area_total = Column(String, nullable=True)
+    imovel = Column(String, nullable=True)
+    car = Column(String, nullable=True)
+    orgao_analise = Column(String, nullable=True)
+    bioma = Column(String, nullable=True)
+
+    carregado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
 class Acesso(Base):
     """
     Quem consultou qual caso, e quando.
