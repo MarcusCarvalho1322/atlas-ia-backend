@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 
 from db import Base, engine, get_db, SessionLocal, descrever_banco, garantir_colunas
 from models import (Caso, Prospecto, DividaAtiva, Notificacao, Termo, Acesso,
-                    Julgamento, AutoEmUC, Autorizacao, AutoIcmbio)
+                    Julgamento, AutoEmUC, Autorizacao, AutoIcmbio, AlertaDeter)
 import geo_service
 import ai_service
 import catalogo
@@ -419,6 +419,11 @@ def pre_verificacao_do_caso(num_auto: str, authorization: Optional[str] = Header
         icmbio = (db.query(AutoIcmbio)
                     .filter(AutoIcmbio.cnpj == p.cnpj).limit(200).all())
 
+    # Alertas do DETER compatíveis em espaço e tempo. Ver models.AlertaDeter
+    # para por que o recorte é 500 m e 180 dias, e não proximidade pura.
+    deter = (db.query(AlertaDeter).filter(AlertaDeter.num_auto == p.num_auto)
+               .order_by(AlertaDeter.metros).limit(5).all())
+
     autorizacoes = []
     if p.cnpj:
         autorizacoes = (db.query(Autorizacao)
@@ -432,7 +437,7 @@ def pre_verificacao_do_caso(num_auto: str, authorization: Optional[str] = Header
                                         divida=divida, escopo_divida=escopo,
                                         notificacoes=notifs, termos=termos,
                                         uc=uc, autorizacoes=autorizacoes,
-                                        julgamento=julgamento, icmbio=icmbio)
+                                        julgamento=julgamento, icmbio=icmbio, deter=deter)
 
 
 class CargaNotificacoes(BaseModel):
@@ -578,6 +583,11 @@ _RECORTES = {
                       "municipio", "uf", "termos_embargo", "termos_apreensao",
                       "ordem_fiscalizacao", "processo", "julgamento",
                       "tem_embargo", "tem_apreensao")),
+    # A chave é num_auto#ordem: um auto pode ter mais de um alerta no recorte,
+    # e todos interessam — o mais próximo não é necessariamente o do fato.
+    "deter": (AlertaDeter, "id",
+              ("num_auto", "camada", "view_date", "dias_antes", "metros", "classname",
+               "sensor", "satellite", "path_row", "municipality", "uf")),
 }
 
 
@@ -959,6 +969,7 @@ def backup(authorization: Optional[str] = Header(None), db: Session = Depends(ge
             "autos_em_uc": db.query(AutoEmUC).count(),
             "autorizacoes": db.query(Autorizacao).count(),
             "autos_icmbio": db.query(AutoIcmbio).count(),
+            "alertas_deter": db.query(AlertaDeter).count(),
         },
         "como_restaurar": (
             "1) POST /api/prospeccao/atualizar para reminerar a carteira do arquivo do IBAMA. "

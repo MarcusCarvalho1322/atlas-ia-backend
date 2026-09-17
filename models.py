@@ -587,3 +587,60 @@ class AutoIcmbio(Base):
     tem_embargo = Column(String, nullable=True)
     tem_apreensao = Column(String, nullable=True)
     carregado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+
+class AlertaDeter(Base):
+    """
+    Alerta de desmatamento do DETER/INPE próximo ao ponto do auto — item 4.1.
+
+    O ITEM E O PONTO CEGO
+    ---------------------
+    O item 4.1 pergunta se as imagens que embasaram a autuação têm data, sensor
+    e resolução documentados. Até aqui o sistema não tinha nada a mostrar: o
+    cadastro do auto não fala das imagens. O INPE publica os alertas com
+    `view_date`, `sensor` e `satellite` — exatamente os metadados que o item
+    manda conferir.
+
+    O RECORTE FOI MEDIDO, NÃO ESCOLHIDO NO OLHO
+    -------------------------------------------
+    Varri os 10.520 autos com coordenada contra as camadas do DETER. O
+    resultado mostra por que proximidade sozinha não serve:
+
+        alerta a até 2 km, sem olhar data ...... 56,9%   ruído
+        a até 300 m, sem olhar data ............ 17,4%
+        a até 500 m E até 180 dias antes ....... 2,50%   sinal
+        a até 300 m E até 180 dias antes ....... 1,70%
+
+    Na Amazônia há alerta em quase toda parte na escala de quilômetros. É a
+    combinação de espaço apertado com tempo compatível que separa o que pode
+    ser o alerta daquele fato do que é só vizinhança.
+
+    O recorte gravado é 500 m e 180 dias: 263 autos, mediana de 238 metros e
+    54 dias entre o alerta e o fato, 90% classificados como corte raso.
+
+    O QUE ISTO NÃO PROVA
+    --------------------
+    Proximidade não é identidade. Este NÃO é necessariamente o alerta que o
+    processo cita — é um alerta público compatível em espaço e tempo. Serve
+    para conferir contra o que o processo alega, e a distância em metros e a
+    diferença em dias vão escritas na tela para a pessoa julgar.
+
+    E o DETER é sistema de ALERTA RÁPIDO para orientar fiscalização, não de
+    medição: o próprio INPE trata o PRODES como o dado oficial de taxa. Área de
+    alerta do DETER não é medida de área autuada, e a evidência diz isso.
+    """
+    __tablename__ = "alertas_deter"
+
+    id = Column(String, primary_key=True)                # num_auto#ordem
+    num_auto = Column(String, index=True, nullable=False)
+    camada = Column(String, nullable=True)               # deter-amz | deter-cerrado-nb
+    view_date = Column(String, nullable=True)            # data do alerta
+    dias_antes = Column(Integer, nullable=True)          # entre o alerta e o fato
+    metros = Column(Integer, nullable=True)              # do ponto do auto ao alerta
+    classname = Column(String, nullable=True)
+    sensor = Column(String, nullable=True)
+    satellite = Column(String, nullable=True)
+    path_row = Column(String, nullable=True)
+    municipality = Column(String, nullable=True)
+    uf = Column(String, nullable=True)
+    carregado_em = Column(DateTime, default=lambda: datetime.now(timezone.utc))

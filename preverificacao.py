@@ -844,6 +844,61 @@ def _evidencia_teto(p, reg: dict) -> list[dict]:
     return ev
 
 
+def _evidencia_deter(alertas: list, p) -> list[dict]:
+    """
+    Alerta de desmatamento do INPE próximo ao fato — item 4.1.
+
+    O item 4.1 pergunta se as imagens que embasaram a autuação têm data, sensor
+    e resolução documentados, e até aqui o sistema não tinha o que mostrar: o
+    cadastro do auto não fala de imagem nenhuma. O DETER publica cada alerta com
+    a data de observação, o sensor e o satélite — que é exatamente o que o item
+    manda conferir no processo.
+
+    O QUE ESTA EVIDÊNCIA CUIDADOSAMENTE NÃO DIZ.
+    Não diz que este é o alerta do auto. Diz que existe alerta público
+    compatível em espaço e em tempo, e mostra os dois números — a distância em
+    metros e quantos dias antes do fato — para a pessoa julgar. Proximidade não
+    é identidade, e o recorte só vale porque foi medido: sem a data, alerta a 2
+    km aparece em 56,9% dos autos, o que é vizinhança, não prova.
+
+    E o DETER é sistema de ALERTA RÁPIDO para orientar fiscalização, não de
+    medição. O próprio INPE trata o PRODES como dado oficial de taxa. Área de
+    alerta não é medida de área autuada.
+    """
+    if not alertas:
+        return []
+    RESSALVA = (" LIMITE: isto NÃO afirma que este é o alerta citado no processo. É "
+                "alerta público compatível em espaço e em tempo — proximidade não é "
+                "identidade. Sem o filtro de data, alerta a 2 km aparece em 56,9% dos "
+                "autos da carteira, o que é vizinhança. E o DETER é sistema de alerta "
+                "rápido para orientar fiscalização, não de medição: a área do alerta "
+                "não é medida da área autuada, e o próprio INPE trata o PRODES como o "
+                "dado oficial de taxa.")
+    ev: list[dict] = []
+    for a in alertas[:3]:
+        m = getattr(a, "metros", None)
+        d = getattr(a, "dias_antes", None)
+        ev.append(_ev(
+            "4.1", "Alerta de desmatamento do INPE compatível com o fato",
+            [("DATA DO ALERTA (view_date)", getattr(a, "view_date", None)),
+             ("DIAS ANTES DO FATO", f"{d} dia(s)" if d is not None else None),
+             ("DISTÂNCIA DO PONTO DO AUTO", f"{m} m" if m is not None else None),
+             ("CLASSE DO ALERTA", getattr(a, "classname", None)),
+             ("SATÉLITE", getattr(a, "satellite", None)),
+             ("SENSOR", getattr(a, "sensor", None)),
+             ("ÓRBITA/PONTO (path_row)", getattr(a, "path_row", None)),
+             ("MUNICÍPIO / UF do alerta", f"{getattr(a, 'municipality', None) or '—'}/"
+                                          f"{getattr(a, 'uf', None) or '—'}"),
+             ("CAMADA", getattr(a, "camada", None)),
+             ("FONTE", "INPE — TerraBrasilis, DETER (licença CC BY-SA)")],
+            "O INPE publica alerta de desmatamento perto do ponto deste auto e em data "
+            "anterior ao fato. Sirva-se disto para conferir o que o processo diz sobre a "
+            "imagem: data de observação, satélite e sensor estão aqui, e são os metadados "
+            "que o item manda exigir. Se o processo não traz esses dados, ou traz outros, "
+            "a diferença é matéria de defesa." + RESSALVA))
+    return ev
+
+
 def _evidencia_icmbio(autos: list, p) -> list[dict]:
     """
     Autos de infração do ICMBio do mesmo CNPJ — itens 2.2 e 5.3.
@@ -1104,7 +1159,8 @@ def pre_verificar(p, irmaos_janela: list, irmaos_todos: list,
                   notificacoes: Optional[list] = None,
                   termos: Optional[list] = None,
                   uc=None, autorizacoes: Optional[list] = None,
-                  julgamento=None, icmbio: Optional[list] = None) -> dict:
+                  julgamento=None, icmbio: Optional[list] = None,
+                  deter: Optional[list] = None) -> dict:
     """
     p              — o Prospecto em análise
     irmaos_janela  — autos do mesmo documento e município em até 30 dias
@@ -1117,6 +1173,7 @@ def pre_verificar(p, irmaos_janela: list, irmaos_todos: list,
     autorizacoes   — autorizações do Sinaflor do MESMO CNPJ (não do mesmo auto)
     julgamento     — desfecho do auto no SICAFI, quando já julgado
     icmbio         — autos do ICMBio do MESMO CNPJ (não do mesmo auto, e só PJ)
+    deter          — alertas do INPE compatíveis em espaço E tempo com o fato
     """
     reg = getattr(p, "registro", None) or {}
     apurados = _apurar(p, reg, irmaos_janela)
@@ -1126,7 +1183,8 @@ def pre_verificar(p, irmaos_janela: list, irmaos_todos: list,
                   + _evidencia_termo(termos or [], reg)
                   + _evidencia_uc(uc)
                   + _evidencia_autorizacao(autorizacoes or [], p)
-                  + _evidencia_icmbio(icmbio or [], p))
+                  + _evidencia_icmbio(icmbio or [], p)
+                  + _evidencia_deter(deter or [], p))
     # O DESFECHO NÃO É EVIDÊNCIA DO PROTOCOLO — VAI SEPARADO, DE PROPÓSITO.
     #
     # O julgamento não responde item nenhum: ele diz se ainda existe caso. Auto
