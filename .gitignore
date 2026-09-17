@@ -62,3 +62,6 @@ _lixeira/
 _*.ps1
 .DS_Store
 Thumbs.db
+backups/
+_gi.cmd
+_msg.txt
