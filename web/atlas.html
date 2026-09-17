@@ -275,8 +275,17 @@ let CASOS_VISIVEIS = [];  // as linhas da Carteira como estão na tela agora
 // APURADOS  {id: {resposta, porque, campos}} — conta de chegada sobre o registro
 //           público. Vira resposta, mas marcada: o laudo declara a procedência.
 // EVIDENCIAS  o campo do registro ao lado da pergunta. NÃO responde nada.
+// SITUACAO    o desfecho do auto no registro do IBAMA. NÃO é evidência de item
+//             nenhum: diz se ainda existe caso. Auto já quitado não tem defesa
+//             a oferecer, e abordar o autuado sobre ele é erro de carteira —
+//             por isso aparece ANTES de qualquer análise, como aviso, e não
+//             enfiado no meio dos 60 itens.
+// COBERTURA   quantos itens a base alcançou neste auto. Serve para a pessoa
+//             saber de saída o tamanho do trabalho humano que sobra.
 let APURADOS = {};
 let EVIDENCIAS = {};   // {id: [evidência, ...]}
+let SITUACAO = null;
+let COBERTURA = null;
 
 const SECOES = [
   ['urgencia',                 'Prazo vencendo'],
@@ -681,13 +690,13 @@ function analisarCaso(i){
             + `essas respostas. Deseja continuar?`)) return;
   if(outro || !CASO_EM_ANALISE){ RESPOSTAS = {}; LAUDO = null; }
   CASO_EM_ANALISE = c;
-  APURADOS = {}; EVIDENCIAS = {};
+  APURADOS = {}; EVIDENCIAS = {}; SITUACAO = null; COBERTURA = null;
   irPara('analise');
 }
 
 function largarCaso(){
   CASO_EM_ANALISE = null; RESPOSTAS = {}; LAUDO = null;
-  APURADOS = {}; EVIDENCIAS = {};
+  APURADOS = {}; EVIDENCIAS = {}; SITUACAO = null; COBERTURA = null;
   telaAnalise();
 }
 
@@ -702,6 +711,8 @@ async function carregarPreVerificacao(){
     const r = await api('/api/prospeccao/' + encodeURIComponent(CASO_EM_ANALISE.num_auto)
                         + '/pre-verificacao');
     APURADOS = r.apurados || {};
+    SITUACAO = r.situacao_do_auto || null;
+    COBERTURA = r.cobertura || null;
     EVIDENCIAS = {};
     for(const e of (r.evidencias || [])){
       (EVIDENCIAS[e.item] = EVIDENCIAS[e.item] || []).push(e);
@@ -712,10 +723,67 @@ async function carregarPreVerificacao(){
       if(RESPOSTAS[id] === undefined) RESPOSTAS[id] = a.resposta;
     }
   }catch(e){
-    APURADOS = {}; EVIDENCIAS = {};
+    APURADOS = {}; EVIDENCIAS = {}; SITUACAO = null; COBERTURA = null;
     aviso('Não consegui buscar a pré-verificação deste auto (' + esc(e.message)
           + '). A análise segue normalmente, com todos os itens em branco.');
   }
+}
+
+// O DESFECHO DO AUTO, ANTES DE QUALQUER ANÁLISE.
+//
+// A API já devolvia `situacao_do_auto` desde 17/09 e esta tela simplesmente
+// ignorava o campo. Na prática, o aviso de auto JÁ QUITADO — 31 na carteira —
+// nunca chegava a quem trabalha. Alguém abriria o caso, leria 60 itens e
+// ligaria para o autuado oferecendo defesa de multa paga.
+//
+// Por isso vem em cima, separado, e não como mais uma linha entre as
+// evidências: não responde item nenhum. Diz se ainda existe caso.
+function situacaoHtml(){
+  if(!SITUACAO) return '';
+  const encerrado = !!SITUACAO.encerrado;
+  const linhas = [
+    ['Situação no registro do IBAMA', SITUACAO.status_debito],
+    ['Decisão administrativa',        SITUACAO.decisao],
+    ['Data do julgamento',            SITUACAO.data_julgamento],
+    ['Valor do auto',                 SITUACAO.valor_do_auto],
+    ['Valor pago',                    SITUACAO.valor_pago],
+  ].filter(([,v]) => v != null && v !== '')
+   .map(([k,v]) => `<div><span class="mono" style="color:var(--ink-faint);font-size:12px">${esc(k)}</span><br>${esc(v)}</div>`)
+   .join('');
+  return `
+    <div class="${encerrado ? 'erro' : 'aviso'}" style="margin-bottom:16px">
+      <b>${encerrado ? 'ATENÇÃO — ESTE AUTO PODE NÃO TER MAIS CASO' : 'Auto já julgado no registro do IBAMA'}</b>
+      <p style="margin:8px 0">${esc(SITUACAO.aviso || '')}</p>
+      <div class="grade" style="gap:10px 20px;font-size:13px">${linhas}</div>
+      <p style="margin:10px 0 0;font-size:12.5px;color:var(--ink-dim)">
+        Fonte: julgamento de auto de infração publicado pelo IBAMA. Como todo o
+        resto desta tela, é <b>cadastro administrativo</b> — confira no processo
+        antes de decidir. Ausência ou presença aqui não substitui o andamento.
+      </p>
+    </div>`;
+}
+
+// Quanto do protocolo a base alcançou NESTE auto. Serve para a pessoa saber de
+// saída o tamanho do trabalho que sobra — e para a tela não dar a impressão de
+// que o sistema respondeu mais do que respondeu.
+function coberturaHtml(){
+  if(!COBERTURA) return '';
+  const ap = COBERTURA.itens_apurados || 0;
+  const ev = COBERTURA.itens_com_evidencia || 0;
+  const tot = COBERTURA.itens_no_protocolo || 0;
+  const intocado = Math.max(tot - ap - ev, 0);
+  return `
+    <div class="painel" style="margin-bottom:16px">
+      <h3>O que a base já trouxe deste auto</h3>
+      <div class="grade" style="gap:10px 20px">
+        <div><b class="mono" style="font-size:20px">${ap}</b><br>
+          <span style="font-size:12.5px;color:var(--ink-dim)">apurados — conta sobre dado presente, já marcados abaixo</span></div>
+        <div><b class="mono" style="font-size:20px">${ev}</b><br>
+          <span style="font-size:12.5px;color:var(--ink-dim)">com evidência — o campo e o valor ao lado da pergunta; quem responde é você</span></div>
+        <div><b class="mono" style="font-size:20px">${intocado}</b><br>
+          <span style="font-size:12.5px;color:var(--ink-dim)">intocados — exigem o processo na mão</span></div>
+      </div>
+    </div>`;
 }
 
 // ───────────────────────── 5. TERRITÓRIO ─────────────────────────
@@ -807,7 +875,9 @@ async function telaAnalise(){
        Responda o que conseguir conferir nas peças do processo e deixe em branco
        o que não souber — item não respondido não entra na conta.</p>
 
+    ${situacaoHtml()}
     ${cabecalhoCaso}
+    ${coberturaHtml()}
 
     <div class="painel">
       <h3>Identificação</h3>
