@@ -403,11 +403,18 @@ def pre_verificacao_do_caso(num_auto: str, authorization: Optional[str] = Header
     # Autorizações do Sinaflor. AQUI O VÍNCULO É O CNPJ, NÃO O AUTO — e por
     # isso só pessoa jurídica: o CPF vem mascarado dos dois lados e casaria
     # errado. A ressalva de procedência vai escrita em cada evidência.
+    #
+    # NÃO ordenar nem cortar aqui. `data_validade` é texto DD/MM/AAAA: ordenar
+    # por ela no banco ordena por DIA, não por data — o `.desc().limit(10)` que
+    # havia aqui devolvia dez autorizações praticamente sorteadas e, pior,
+    # fazia a tela dizer "mais N" contando a partir de um recorte arbitrário.
+    # Quem sabe ler a data é a pré-verificação; ela recebe tudo do CNPJ,
+    # ordena de verdade e decide o que mostrar. O teto de 500 é só contenção:
+    # o CNPJ mais carregado da carteira tem 211.
     autorizacoes = []
     if p.cnpj:
         autorizacoes = (db.query(Autorizacao)
-                          .filter(Autorizacao.cnpj == p.cnpj)
-                          .order_by(Autorizacao.data_validade.desc()).limit(10).all())
+                          .filter(Autorizacao.cnpj == p.cnpj).limit(500).all())
 
     # Desfecho do auto. Não é evidência do protocolo: é o aviso de que pode
     # não haver mais caso.

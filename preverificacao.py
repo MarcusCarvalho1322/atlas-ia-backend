@@ -34,6 +34,7 @@ como ausência no registro, com essas palavras.
 """
 from __future__ import annotations
 
+import unicodedata
 from datetime import date, timedelta  # noqa: F401  (timedelta usado nas notificações)
 from typing import Optional
 
@@ -54,7 +55,18 @@ DECURSO_ANOS = 3
 
 
 def _d(valor) -> Optional[date]:
-    """Aceita date, datetime ou string ISO; devolve date ou None."""
+    """
+    Aceita date, datetime, string ISO (2026-05-28) ou string brasileira
+    (28/05/2026); devolve date ou None.
+
+    O formato brasileiro entrou porque o Sinaflor publica DD/MM/AAAA, e sem ele
+    TODAS as 604 autorizações caíam no balde "janela não comparável" — a tela
+    dizia "falta a data de um dos lados" com as duas datas presentes no arquivo.
+    Afirmar que o dado falta quando ele existe é pior do que não exibir nada:
+    transforma pergunta respondível em silêncio, que é justamente o que este
+    sistema não pode fazer. Não há ambiguidade entre os dois formatos: o ISO
+    começa por ano de quatro dígitos, o brasileiro por dia de dois.
+    """
     if valor is None:
         return None
     if isinstance(valor, date):
@@ -63,7 +75,29 @@ def _d(valor) -> Optional[date]:
     try:
         return date.fromisoformat(s)
     except ValueError:
+        pass
+    try:
+        dia, mes, ano = s.split("/")
+        return date(int(ano), int(mes), int(dia))
+    except (ValueError, TypeError):
         return None
+
+
+def _chave_lugar(nome) -> str:
+    """
+    Reduz nome de município à forma comparável: sem acento, sem caixa, sem
+    espaço sobrando.
+
+    Existe porque as duas bases escrevem o mesmo município de dois jeitos — o
+    Sinaflor publica FEIJO e o cadastro do auto publica Feijó. A comparação
+    ingênua respondia "NÃO, municípios diferentes" para o MESMO lugar, e esse
+    campo é justamente o que a pessoa usa para decidir se a autorização tem a
+    ver com o fato. Errar aqui é pior do que calar: manda descartar uma prova
+    boa. A normalização só tira acento e caixa — não aproxima nomes parecidos,
+    não adivinha abreviatura, não usa distância de edição.
+    """
+    s = unicodedata.normalize("NFKD", str(nome or ""))
+    return "".join(c for c in s if not unicodedata.combining(c)).strip().upper()
 
 
 def _campo(reg: dict, nome: str) -> Optional[str]:
@@ -541,17 +575,35 @@ def _evidencia_autorizacao(autorizacoes: list, p) -> list[dict]:
                 "auto — pode ser de outro imóvel, outro município ou outro período. "
                 "Compare o município e a data antes de usar.")
 
+    # Mais recente primeiro dentro de cada balde: entre autorizações do mesmo
+    # CNPJ, a que venceu ontem diz mais sobre o caso do que a de 2015.
+    for lista in (vigentes, vencidas, outras):
+        lista.sort(key=lambda t: (t[2] or date.min, t[1] or date.min), reverse=True)
+
+    mostradas = 0
+
     def bloco(titulo, lista, leitura):
+        nonlocal mostradas
+        mostradas += min(len(lista), 3)
         for a, emi, val in lista[:3]:
             mun_aut = (getattr(a, "municipio", "") or "").strip()
-            mesmo_mun = mun_auto and mun_aut and mun_auto.upper() == mun_aut.upper()
+            mesmo_mun = (mun_auto and mun_aut
+                         and _chave_lugar(mun_auto) == _chave_lugar(mun_aut))
             linhas = [("NRO_AUTORIZACAO", getattr(a, "nro_autorizacao", None)),
-                      ("SITUACAO", getattr(a, "situacao", None)),
+                      # SITUACAO é o estado ATUAL no Sinaflor; a janela abaixo é a
+                      # comparação com a DATA DO FATO. Uma autorização vigente na
+                      # data do fato aparece hoje como "Vencida" sem contradição
+                      # alguma — e é confusão fácil de fazer, por isso vai rotulado.
+                      ("SITUACAO (hoje, no Sinaflor)", getattr(a, "situacao", None)),
                       ("VALIDADE", f"{emi.isoformat() if emi else '?'} a {val.isoformat() if val else '?'}"),
                       ("DATA DO FATO (auto)", dt_fato.isoformat() if dt_fato else "— sem data"),
                       ("MUNICÍPIO da autorização", mun_aut or None),
                       ("MUNICÍPIO do auto", mun_auto or None),
-                      ("MESMO MUNICÍPIO?", "sim" if mesmo_mun else "NÃO — confira se é o mesmo imóvel"),
+                      # Sem um dos dois nomes não se diz "não": diz-se que falta o dado.
+                      ("MESMO MUNICÍPIO?",
+                       "sim" if mesmo_mun else
+                       ("NÃO — confira se é o mesmo imóvel" if (mun_auto and mun_aut)
+                        else "— não dá para comparar: falta o município de um dos lados")),
                       ("FINALIDADE", getattr(a, "finalidade", None)),
                       ("AREA_TOTAL_PROJ", getattr(a, "area_total", None)),
                       ("IMÓVEL / CAR", " · ".join(x for x in [(getattr(a, "imovel", "") or ""),
@@ -559,22 +611,30 @@ def _evidencia_autorizacao(autorizacoes: list, p) -> list[dict]:
             ev.append(_ev("2.1", titulo, linhas, leitura + RESSALVA))
 
     bloco("Autorização de supressão VIGENTE na data do fato", vigentes,
-          "O Sinaflor registra autorização de supressão do CNPJ autuado com validade "
-          "ABERTA na data do fato. Se for do mesmo imóvel, é matéria central da defesa: "
-          "a conduta pode estar amparada por ato do próprio órgão.")
+          "O Sinaflor registra autorização de supressão do CNPJ autuado cuja janela de "
+          "validade ESTAVA ABERTA na data do fato. O campo SITUACAO acima é o estado de "
+          "hoje e pode dizer 'Vencida' sem contradizer isto. Se for do mesmo imóvel, é "
+          "matéria central da defesa: a conduta pode estar amparada por ato do próprio "
+          "órgão.")
     bloco("Autorização de supressão VENCIDA antes do fato", vencidas,
-          "O CNPJ autuado TINHA autorização, e ela venceu antes da data do fato. Isso é "
-          "situação diferente de nunca ter tido: alcança a discussão sobre boa-fé e "
-          "sobre a dosimetria. Na carteira medida, 239 das 604 autorizações estão "
-          "vencidas.")
+          "O CNPJ autuado TINHA autorização, e a janela de validade fechou ANTES da data "
+          "do fato. Isso é situação diferente de nunca ter tido: alcança a discussão "
+          "sobre boa-fé e sobre a dosimetria.")
     bloco("Autorização de supressão do mesmo CNPJ (janela não comparável)", outras,
           "O Sinaflor registra autorização do CNPJ autuado, mas as datas não permitem "
           "dizer se estava vigente na data do fato — falta a data de um dos lados.")
 
-    if len(autorizacoes) > 3:
-        ev.append(_ev("2.1", f"Mais {len(autorizacoes) - 3} autorização(ões) do mesmo CNPJ",
-                      [], "O CNPJ acumula outras autorizações no Sinaflor. Vale varrer a "
-                          "lista completa antes de afirmar ausência de amparo." + RESSALVA))
+    # O resto conta a partir do que REALMENTE foi exibido, não de um número fixo:
+    # cada balde mostra até três, então o total exibido varia de 0 a 9.
+    restantes = len(autorizacoes) - mostradas
+    if restantes > 0:
+        ev.append(_ev("2.1", f"Mais {restantes} autorização(ões) do mesmo CNPJ",
+                      [("VIGENTES na data do fato", len(vigentes) or None),
+                       ("VENCIDAS antes do fato", len(vencidas) or None),
+                       ("sem janela comparável", len(outras) or None)],
+                      "O CNPJ acumula outras autorizações no Sinaflor. Acima estão as "
+                      "mais recentes de cada situação; vale varrer a lista completa "
+                      "antes de afirmar ausência de amparo." + RESSALVA))
     return ev
 
 
