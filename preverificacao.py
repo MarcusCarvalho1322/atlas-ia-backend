@@ -58,6 +58,18 @@ DECURSO_ANOS = 3
 # leituras do item 4.9. As outras duas diziam a procedência pelo rótulo do campo,
 # o que é correto mas não é uniforme — e num produto forense a ressalva não pode
 # depender de qual ramo do código a pessoa caiu.
+# Mesma lição do 4.9, aplicada antes de o item entrar: as três leituras do 5.4
+# — valor por unidade, faixa com acréscimo, escalonada por porte — todas
+# precisam dizer, com as mesmas palavras, que o valor do artigo NÃO é teto.
+# Sem isso, quem lê a evidência de um ramo aprende uma coisa e quem lê a de
+# outro aprende outra, sobre o mesmo item.
+RESSALVA_VALOR_ARTIGO = (
+    " O sistema não conclui nada aqui: o valor do artigo NÃO é teto neste caso. "
+    "E majoração legal — dobro em unidade de conservação (art. 93), dobro por "
+    "vantagem pecuniária, triplicação por reincidência da Lei 9.605/98 — pode "
+    "elevar licitamente o valor acima do que o artigo indica."
+)
+
 RESSALVA_AREA_TERMO = (
     "a área exibida ao lado vem do TERMO lavrado na mesma fiscalização, não do "
     "cadastro do auto. Confira no processo qual número sustentou o cálculo."
@@ -122,6 +134,97 @@ def _campo(reg: dict, nome: str) -> Optional[str]:
 #  FAIXA 1 — APURADO
 # ═══════════════════════════════════════════════════════════════════════════
 
+_ART_DEC = re.compile(r"Art\.?\s*(\d+(?:-[A-Z])?)", re.I)
+
+
+def _artigos_do_decreto(reg: dict) -> list[str]:
+    """
+    Artigos do Decreto 6.514/08 citados no enquadramento do auto.
+
+    O cadastro escreve tudo numa linha só, misturando a Lei 9.605/98 e o
+    decreto: "Art. 72 - Lei 9605/98, Art. 70 § 1 - Lei 9605/98, Art. 48 -
+    Decreto 6514/2008." Por isso a leitura é por trecho separado por vírgula, e
+    só entra o trecho que cita o decreto — casar "Art. 72" com a tabela do
+    decreto traria o artigo errado, que é pior do que não responder.
+    """
+    campos = ("DS_ENQUADRAMENTO_ADMINISTRATIVO",
+              "DS_ENQUADRAMENTO_NAO_ADMINISTRATIVO",
+              "DS_ENQUADRAMENTO_COMPLEMENTAR")
+    texto = " | ".join(str((reg or {}).get(c) or "") for c in campos)
+    achados: list[str] = []
+    for trecho in texto.split(","):
+        if not re.search(r"6514|6\.514", trecho):
+            continue
+        m = _ART_DEC.search(trecho)
+        if m and m.group(1) not in achados:
+            achados.append(m.group(1))
+    return achados
+
+
+def _apurar_teto(p, reg: dict, out: dict) -> None:
+    """
+    Item 5.4 — o valor da multa contra o que o artigo enquadrado prevê.
+
+    Este item chegava INTOCADO, e não porque faltasse dado: os dois lados da
+    conta já estavam no cadastro — o artigo enquadrado e o valor da multa. O
+    que faltava era a tabela, e ela é norma pública, não base de dados.
+
+    SÓ VIRA RESPOSTA quando o artigo tem teto rígido: faixa ou valor fechado,
+    sem cláusula de acréscimo por unidade em parte alguma do artigo. Nos demais
+    — valor por hectare, por indivíduo, com acréscimo por quilo — o valor do
+    artigo não é teto, e concluir excesso a partir dele seria inventar uma
+    ilegalidade. Esses viram evidência, em `_evidencia_teto`.
+
+    E mesmo quando conclui, conclui ARITMÉTICA, não licitude: multa acima do
+    valor do artigo pode ser legal pelo dobro do art. 93 (unidade de
+    conservação), pelo dobro por vantagem pecuniária ou pela triplicação por
+    reincidência da Lei 9.605/98. O texto da resposta diz isso.
+    """
+    try:
+        import dec6514
+    except Exception:
+        return
+    arts = _artigos_do_decreto(reg)
+    if not arts or p.valor is None:
+        return
+    # Mais de um artigo do decreto é cumulação, e aí o valor da multa pode
+    # corresponder à soma. Não se conclui sobre cumulação por aritmética.
+    if len(arts) > 1:
+        return
+    teto = dec6514.teto_conclusivo(arts[0])
+    if teto is None:
+        return
+    try:
+        valor = float(p.valor)
+    except (TypeError, ValueError):
+        return
+    acima = valor > teto
+    vezes = (valor / teto) if teto else None
+    out["5.4"] = {
+        "resposta": FAIL if acima else OK,
+        "porque": (
+            (f"A multa é {vezes:.2f}x o valor máximo do art. {arts[0]} do "
+             f"Decreto 6.514/08 (multa {_brl(valor)}, máximo do artigo "
+             f"{_brl(teto)}). ISTO É ARITMÉTICA, NÃO ILEGALIDADE: o dobro "
+             f"em unidade de conservação (art. 93), o dobro por vantagem "
+             f"pecuniária e a triplicação por reincidência da Lei 9.605/98 "
+             f"podem explicar o valor. Confira a majoração no processo."
+             ) if acima else
+            (f"A multa está dentro do valor previsto no art. {arts[0]} do "
+             f"Decreto 6.514/08 (multa {_brl(valor)}, máximo do artigo "
+             f"{_brl(teto)}). Não afasta discussão de dosimetria dentro da "
+             f"faixa — diz apenas que o limite do tipo não foi ultrapassado.")
+        ),
+        "campos": {
+            "artigo enquadrado": f"Art. {arts[0]} do Decreto 6.514/08",
+            "valor da multa (cadastro)": _brl(valor),
+            "máximo previsto no artigo": _brl(teto),
+            "texto do artigo": dec6514.SANCOES[arts[0]]["texto"],
+            "fonte": dec6514.FONTE,
+        },
+    }
+
+
 def _apurar(p, reg: dict, irmaos: list) -> dict:
     """
     Devolve {item_id: {resposta, porque, campos}} só para o que é conta de
@@ -130,6 +233,8 @@ def _apurar(p, reg: dict, irmaos: list) -> dict:
     out: dict[str, dict] = {}
     fato, auto = _d(p.dt_fato), _d(p.dt_auto)
 
+    # 5.4 — o valor da multa contra o valor que o artigo enquadrado prevê.
+    _apurar_teto(p, reg, out)
 
     # 6.1 — decurso entre o fato e a lavratura. Subtração pura.
     if fato and auto:
@@ -666,6 +771,79 @@ def _evidencia_autorizacao(autorizacoes: list, p) -> list[dict]:
     return ev
 
 
+def _evidencia_teto(p, reg: dict) -> list[dict]:
+    """
+    Item 5.4 quando o artigo NÃO tem teto fechado — o caso mais comum.
+
+    Em 35,8% da carteira o artigo enquadrado fixa valor POR UNIDADE (R$ 5.000
+    por hectare, no art. 48 e no 50) ou traz acréscimo por quilo, por metro
+    cúbico, por unidade. Aí o valor do artigo não limita coisa nenhuma: a multa
+    cresce com a quantidade, e sem a quantidade não há conta.
+
+    O que se faz então é o que este sistema faz sempre: põe os dois números
+    lado a lado e devolve a pergunta. E quando o valor é por hectare, mostra
+    também a ÁREA IMPLÍCITA — multa dividida pelo valor unitário —, porque é
+    ela que a pessoa vai conferir contra a área do processo. A área implícita é
+    divisão, não afirmação sobre o cálculo do órgão: o texto diz isso.
+    """
+    try:
+        import dec6514
+    except Exception:
+        return []
+    arts = _artigos_do_decreto(reg)
+    if not arts or p.valor is None:
+        return []
+    try:
+        valor = float(p.valor)
+    except (TypeError, ValueError):
+        return []
+
+    ev: list[dict] = []
+    for art in arts[:2]:
+        d = dec6514.sancao_do_artigo(art)
+        if not d or dec6514.teto_conclusivo(art) is not None:
+            continue  # o conclusivo já virou apurado
+        linhas = [("ARTIGO ENQUADRADO", f"Art. {art} do Decreto 6.514/08"),
+                  ("VALOR DA MULTA (cadastro)", _brl(valor))]
+        if d["tipo"] == "unitaria":
+            vs = d["valores"]
+            linhas.append(("VALOR PREVISTO NO ARTIGO",
+                           " · ".join(f"{_brl(v['valor'])} por {v['unidade']}" for v in vs)))
+            por_ha = [v for v in vs if (v["unidade"] or "").startswith("hectare")]
+            if len(por_ha) == 1 and por_ha[0]["valor"]:
+                implicita = valor / por_ha[0]["valor"]
+                linhas.append(("ÁREA IMPLÍCITA NO VALOR",
+                               f"{implicita:,.4f} ha".replace(",", "·").replace(".", ",").replace("·", ".")))
+            leitura = (
+                "O artigo enquadrado fixa valor POR UNIDADE, não teto. O valor da multa "
+                "depende da quantidade, e por isso o sistema não conclui nada aqui — "
+                "põe os números lado a lado. A ÁREA IMPLÍCITA, quando aparece, é "
+                "simples divisão do valor da multa pelo valor por hectare do artigo: "
+                "serve para conferir contra a área do processo, e NÃO afirma qual área "
+                "o órgão usou nem que o cálculo está certo. Majoração legal — dobro em "
+                "unidade de conservação, dobro por vantagem pecuniária, triplicação por "
+                "reincidência — altera essa divisão." + RESSALVA_VALOR_ARTIGO)
+        elif d["tipo"] == "faixa":
+            linhas.append(("FAIXA DO ARTIGO", f"{_brl(d['min'])} a {_brl(d['max'])}"
+                                              + (f" por {d['unidade']}" if d.get("unidade") else "")))
+            leitura = (
+                "O artigo traz faixa, mas ela NÃO é teto fechado: há no artigo cláusula "
+                "de acréscimo por unidade, ou a faixa é por unidade. Valor acima do "
+                "máximo da faixa pode ser inteiramente regular. Confira a memória de "
+                "cálculo no processo." + RESSALVA_VALOR_ARTIGO)
+        else:
+            linhas.append(("VALORES DO ARTIGO",
+                           " · ".join(_brl(v["valor"]) for v in d.get("valores", []))))
+            leitura = ("O artigo escalona o valor por porte do infrator. Qual faixa se "
+                       "aplica depende de enquadramento que o cadastro não informa."
+                       + RESSALVA_VALOR_ARTIGO)
+        linhas.append(("TEXTO DO ARTIGO", d["texto"]))
+        linhas.append(("FONTE", dec6514.FONTE))
+        ev.append(_ev("5.4", f"Valor previsto no art. {art} do Decreto 6.514/08",
+                      linhas, leitura))
+    return ev
+
+
 def _evidenciar(p, reg: dict, irmaos_todos: list) -> list[dict]:
     ev: list[dict] = []
     g = lambda n: _campo(reg, n)
@@ -814,6 +992,8 @@ def _evidenciar(p, reg: dict, irmaos_todos: list) -> list[dict]:
             "Há protocolo de recurso no cadastro. Confira se o conhecimento foi "
             "condicionado a depósito, caução ou arrolamento."))
 
+    # 5.4 — o valor previsto no artigo, quando ele não é teto fechado.
+    ev.extend(_evidencia_teto(p, reg))
 
     # 1.1 — identificação.
     ev.append(_ev("1.1", "Identificação no registro público",
